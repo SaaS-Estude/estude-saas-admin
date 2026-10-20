@@ -95,6 +95,9 @@ export class PlatformError extends Error {
 // A generation prevents late responses from an old session from signing out a
 // newly authenticated operator or dispatching several expiry notifications.
 let sessionGeneration = 0;
+let refreshRevision = 0;
+let sessionEnded = false;
+let refreshInFlight: { generation: number; promise: Promise<void> } | null = null;
 const sessionExpiredListeners = new Set<() => void>();
 export function onPlatformSessionExpired(listener: () => void) {
   sessionExpiredListeners.add(listener);
@@ -103,8 +106,27 @@ export function onPlatformSessionExpired(listener: () => void) {
   };
 }
 
-async function request<T>(path: string, method = "GET", body?: unknown) {
-  const generation = sessionGeneration;
+function expireSession(generation: number) {
+  if (generation !== sessionGeneration || sessionEnded) return;
+  ++sessionGeneration;
+  sessionEnded = true;
+  sessionExpiredListeners.forEach((listener) => listener());
+}
+
+// Serialize cookie rotation, login and logout across tabs. Tokens remain in
+// host-only HttpOnly cookies; no credential is stored or broadcast in JS.
+async function withSessionLock<T>(action: () => Promise<T>): Promise<T> {
+  if (typeof navigator !== "undefined" && navigator.locks)
+    return navigator.locks.request("estude:platform-auth", action);
+  if (typeof window !== "undefined")
+    throw new PlatformError(
+      "Trình duyệt cần hỗ trợ Web Locks và kết nối HTTPS để đăng nhập.",
+      0,
+    );
+  return action();
+}
+
+async function send<T>(path: string, method = "GET", body?: unknown) {
   let response: Response;
   try {
     response = await fetch(`/api/platform/v1${path}`, {
@@ -122,14 +144,6 @@ async function request<T>(path: string, method = "GET", body?: unknown) {
       0,
     );
   }
-  if (
-    response.status === 401 &&
-    path !== "/login" &&
-    generation === sessionGeneration
-  ) {
-    ++sessionGeneration;
-    sessionExpiredListeners.forEach((listener) => listener());
-  }
   let envelope: { success?: boolean; message?: string; data: T };
   try {
     envelope = await response.json();
@@ -146,20 +160,93 @@ async function request<T>(path: string, method = "GET", body?: unknown) {
     total: Number(response.headers.get("X-Total-Count") ?? 0),
   };
 }
+
+async function refreshSession(generation: number) {
+  if (sessionEnded || generation !== sessionGeneration)
+    throw new PlatformError("Vui lòng đăng nhập lại.", 401);
+  if (!refreshInFlight || refreshInFlight.generation !== generation) {
+    const promise = withSessionLock(async () => {
+      if (sessionEnded || generation !== sessionGeneration)
+        throw new PlatformError("Vui lòng đăng nhập lại.", 401);
+      await send("/refresh-token", "POST");
+      if (generation !== sessionGeneration)
+        throw new PlatformError("Phiên quản trị đã kết thúc.", 401);
+      ++refreshRevision;
+    })
+      .catch((error: unknown) => {
+        // A temporary network/service failure must not discard a live session.
+        if (error instanceof PlatformError && error.status === 401)
+          expireSession(generation);
+        throw error;
+      })
+      .finally(() => {
+        if (refreshInFlight?.promise === promise) refreshInFlight = null;
+      });
+    refreshInFlight = { generation, promise };
+  }
+  await refreshInFlight.promise;
+}
+
+async function request<T>(path: string, method = "GET", body?: unknown) {
+  const generation = sessionGeneration;
+  const revision = refreshRevision;
+  try {
+    return await send<T>(path, method, body);
+  } catch (error) {
+    if (
+      !(error instanceof PlatformError) ||
+      error.status !== 401 ||
+      generation !== sessionGeneration ||
+      sessionEnded
+    ) throw error;
+    if (revision === refreshRevision) await refreshSession(generation);
+    if (generation !== sessionGeneration)
+      throw new PlatformError("Phiên quản trị đã kết thúc.", 401);
+    try {
+      // Replay once only; the server rejects expired credentials before mutations.
+      return await send<T>(path, method, body);
+    } catch (retryError) {
+      if (retryError instanceof PlatformError && retryError.status === 401)
+        expireSession(generation);
+      throw retryError;
+    }
+  }
+}
 async function get<T>(path: string) {
   return (await request<T>(path)).data;
 }
 export const platformApi = {
   me: () => get<Operator>("/me"),
   login: async (accountName: string, password: string) => {
-    await request("/login", "POST", { accountName, password });
-    ++sessionGeneration;
+    await withSessionLock(async () => {
+      await send("/login", "POST", { accountName, password });
+      ++sessionGeneration;
+      refreshRevision = 0;
+      sessionEnded = false;
+    });
     return get<Operator>("/me");
   },
   logout: async () => {
-    const result = await request("/logout", "POST");
-    ++sessionGeneration;
-    return result;
+    const generation = ++sessionGeneration;
+    sessionEnded = true;
+    try {
+      return await withSessionLock(async () => {
+        try {
+          return await send("/logout", "POST");
+        } catch (error) {
+          if (!(error instanceof PlatformError) || error.status !== 401)
+            throw error;
+          // An expired access cookie must not prevent revoking the refresh session.
+          await send("/refresh-token", "POST");
+          return send("/logout", "POST");
+        }
+      });
+    } catch (error) {
+      if (generation === sessionGeneration) sessionEnded = false;
+      if (error instanceof PlatformError && error.status === 401)
+        expireSession(generation);
+      throw error;
+    }
   },
   overview: () => get<Overview>("/overview"),
   tenants: (q: string, status: string, page: number) =>
