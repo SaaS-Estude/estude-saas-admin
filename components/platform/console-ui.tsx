@@ -205,6 +205,7 @@ export function Modal({
   closeDisabled = false,
   footer,
   size = "default",
+  hidden = false,
 }: {
   title: string;
   titleBadge?: ReactNode;
@@ -214,6 +215,7 @@ export function Modal({
   closeDisabled?: boolean;
   footer?: ReactNode | ((requestClose: () => void) => ReactNode);
   size?: "default" | "wide";
+  hidden?: boolean;
 }) {
   const [confirming, setConfirming] = useState(false);
   const continueButton = useRef<HTMLButtonElement>(null);
@@ -273,7 +275,7 @@ export function Modal({
   }, []);
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/40 p-3 backdrop-blur-sm sm:p-6"
+      className={`fixed inset-0 z-50 ${hidden ? "hidden" : "flex"} items-center justify-center overflow-y-auto bg-slate-950/40 p-3 backdrop-blur-sm sm:p-6`}
       onClick={requestClose}
     >
       <section

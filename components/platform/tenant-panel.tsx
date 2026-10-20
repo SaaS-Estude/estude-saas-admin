@@ -6,6 +6,7 @@ import { renewalPeriod } from "@/lib/console-rules";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 import { tenantPortalUrl } from "@/lib/tenant-portal";
 import { previewTenantDomains } from "@/lib/tenant-domains";
+import { TenantAdminPasswordPanel } from "./tenant-admin-password-panel";
 import {
   platformApi,
   type Plan,
@@ -66,6 +67,9 @@ export function TenantPanel({
   const [conflict, setConflict] = useState(false);
   const [committed, setCommitted] = useState(false);
   const [confirmReload, setConfirmReload] = useState(false);
+  const [adminDirty, setAdminDirty] = useState(false);
+  const [adminBusy, setAdminBusy] = useState(false);
+  const [adminPanelKey, setAdminPanelKey] = useState(0);
   const load = useCallback(async () => {
     const [detail, schoolProfile, branding, subscription, usage] =
       await Promise.all([
@@ -151,6 +155,7 @@ export function TenantPanel({
       !sub ||
       !dirty ||
       busy ||
+      adminBusy ||
       committed ||
       conflict
     )
@@ -219,16 +224,6 @@ export function TenantPanel({
       setBusy(false);
     }
   }
-  if (confirmReload)
-    return (
-      <DiscardChangesDialog
-        cancel={() => setConfirmReload(false)}
-        discard={() => {
-          setConfirmReload(false);
-          void reload();
-        }}
-      />
-    );
   if (loading)
     return (
       <Modal title="Quản lý trường" close={close}>
@@ -266,30 +261,34 @@ export function TenantPanel({
   ];
   const expired =
     new Date(saved.subscription.periodEnd).getTime() <= Date.now();
-  return (
+  return [
     <Modal
+      key="tenant"
+      hidden={confirmReload}
       title={detail.tenant.name}
       titleBadge={<Badge status={detail.tenant.status} />}
       size="wide"
       close={close}
-      confirmDiscard={dirty && !committed}
-      closeDisabled={busy}
+      confirmDiscard={(dirty && !committed) || adminDirty}
+      closeDisabled={busy || adminBusy || confirmReload}
       footer={(requestClose) => (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span role="status" className="text-xs text-slate-500">
-            {busy
-              ? "Đang lưu thay đổi…"
-              : committed
-                ? "Thay đổi đã được lưu"
-                : dirty
+            {adminBusy
+              ? "Đang đặt lại mật khẩu quản trị trường…"
+              : busy
+                ? "Đang lưu thay đổi…"
+                : adminDirty || (dirty && !committed)
                   ? "Có thay đổi chưa lưu"
-                  : "Chưa có thay đổi"}
+                  : committed
+                    ? "Thay đổi đã được lưu"
+                    : "Chưa có thay đổi"}
           </span>
           <div className="ml-auto flex gap-2">
             <button
               type="button"
               className={secondaryClass}
-              disabled={busy}
+              disabled={busy || adminBusy}
               onClick={requestClose}
             >
               Hủy
@@ -297,7 +296,7 @@ export function TenantPanel({
             <button
               form={formId}
               type="submit"
-              disabled={busy || !dirty || conflict || committed}
+              disabled={busy || adminBusy || !dirty || conflict || committed}
               className={primaryClass}
             >
               {busy ? (
@@ -332,17 +331,20 @@ export function TenantPanel({
               type="button"
               className={secondaryClass}
               onClick={() => {
-                if (dirty && !committed) setConfirmReload(true);
+                if ((dirty && !committed) || adminDirty) setConfirmReload(true);
                 else void reload();
               }}
-              disabled={busy}
+              disabled={busy || adminBusy}
             >
               Tải lại thông tin
             </button>
           </div>
         )}
         {success && <SuccessNotice>{success}</SuccessNotice>}
-        <fieldset disabled={busy || committed} className="min-w-0 space-y-6">
+        <fieldset
+          disabled={busy || adminBusy || committed}
+          className="min-w-0 space-y-6"
+        >
           <div className="grid items-start gap-6 lg:grid-cols-2 lg:gap-8">
             <div className="min-w-0 space-y-6">
               <section className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5">
@@ -386,7 +388,10 @@ export function TenantPanel({
                     <input
                       value={profile.baseDomain}
                       onChange={(e) => {
-                        setProfile({ ...profile, baseDomain: e.target.value });
+                        setProfile({
+                          ...profile,
+                          baseDomain: e.target.value,
+                        });
                         setConfirmed(false);
                       }}
                       required
@@ -455,7 +460,10 @@ export function TenantPanel({
                   <input
                     value={settings.displayName}
                     onChange={(e) =>
-                      setSettings({ ...settings, displayName: e.target.value })
+                      setSettings({
+                        ...settings,
+                        displayName: e.target.value,
+                      })
                     }
                     required
                     minLength={2}
@@ -468,7 +476,10 @@ export function TenantPanel({
                     type="color"
                     value={settings.primaryColor}
                     onChange={(e) =>
-                      setSettings({ ...settings, primaryColor: e.target.value })
+                      setSettings({
+                        ...settings,
+                        primaryColor: e.target.value,
+                      })
                     }
                     className="h-10 w-20 rounded-lg border border-slate-200"
                   />
@@ -657,6 +668,24 @@ export function TenantPanel({
           )}
         </fieldset>
       </form>
-    </Modal>
-  );
+      <TenantAdminPasswordPanel
+        key={adminPanelKey}
+        id={id}
+        disabled={busy}
+        onDirtyChange={setAdminDirty}
+        onBusyChange={setAdminBusy}
+      />
+    </Modal>,
+    confirmReload && (
+      <DiscardChangesDialog
+        key="discard"
+        cancel={() => setConfirmReload(false)}
+        discard={() => {
+          setConfirmReload(false);
+          setAdminPanelKey((value) => value + 1);
+          void reload();
+        }}
+      />
+    ),
+  ];
 }

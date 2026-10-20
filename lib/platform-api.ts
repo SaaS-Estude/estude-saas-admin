@@ -67,6 +67,12 @@ export type TenantProfile = {
   baseDomain: string;
   revision: number;
 };
+export type TenantAdminAccount = {
+  id: string;
+  accountName: string;
+  fullName: string;
+  status: string;
+};
 export type TenantUpdate = {
   profile?: Omit<TenantProfile, "revision"> & { expectedRevision: number };
   settings?: Pick<Settings, "displayName" | "primaryColor"> & {
@@ -97,7 +103,8 @@ export class PlatformError extends Error {
 let sessionGeneration = 0;
 let refreshRevision = 0;
 let sessionEnded = false;
-let refreshInFlight: { generation: number; promise: Promise<void> } | null = null;
+let refreshInFlight: { generation: number; promise: Promise<void> } | null =
+  null;
 const sessionExpiredListeners = new Set<() => void>();
 export function onPlatformSessionExpired(listener: () => void) {
   sessionExpiredListeners.add(listener);
@@ -198,7 +205,8 @@ async function request<T>(path: string, method = "GET", body?: unknown) {
       error.status !== 401 ||
       generation !== sessionGeneration ||
       sessionEnded
-    ) throw error;
+    )
+      throw error;
     if (revision === refreshRevision) await refreshSession(generation);
     if (generation !== sessionGeneration)
       throw new PlatformError("Phiên quản trị đã kết thúc.", 401);
@@ -274,6 +282,18 @@ export const platformApi = {
     adminPassword: string;
   }) => request<ProvisionRequest>("/tenants", "POST", input),
   tenant: (id: string) => get<TenantDetail>(`/tenants/${id}`),
+  tenantAdminAccounts: (id: string) =>
+    get<TenantAdminAccount[]>(`/tenants/${id}/admin-accounts`),
+  resetTenantAdminPassword: (
+    id: string,
+    userId: string,
+    newPassword: string,
+    confirmNewPassword: string,
+  ) =>
+    request(`/tenants/${id}/admin-accounts/${userId}/password`, "POST", {
+      newPassword,
+      confirmNewPassword,
+    }),
   updateTenant: (id: string, changes: TenantUpdate) =>
     request(`/tenants/${id}`, "PUT", changes),
   tenantProfile: (id: string) => get<TenantProfile>(`/tenants/${id}/profile`),
