@@ -753,19 +753,6 @@ export function PlatformConsole() {
             </span>
           </div>
         </div>
-        <div className="mt-6 flex items-center gap-3 border-t border-slate-100 px-2 pt-5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold uppercase text-slate-600">
-            {operator.accountName.slice(0, 2)}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">
-              {operator.accountName}
-            </p>
-            <p className="mt-0.5 text-[11px] text-slate-400">
-              Quản trị viên nền tảng
-            </p>
-          </div>
-        </div>
         <p className="mb-3 mt-8 px-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
           Không gian làm việc
         </p>
@@ -795,14 +782,27 @@ export function PlatformConsole() {
         </div>
       </aside>
       <div className="min-w-0 lg:ml-64">
-        <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 bg-white/95 px-5 py-4 backdrop-blur-md sm:px-8">
-          <div className="flex items-center gap-2 text-xs text-slate-400 sm:text-sm">
-            <ShieldCheck size={17} className="text-blue-600" />
-            <span>Quản trị SaaS</span>
-            <ChevronRight size={14} />
-            <span className="font-medium text-slate-700">
+        <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200/70 bg-white/95 px-5 py-4 backdrop-blur-md sm:px-8">
+          <div className="flex min-w-0 items-center gap-2 text-xs text-slate-400 sm:text-sm">
+            <ShieldCheck size={17} className="shrink-0 text-blue-600" />
+            <span className="hidden whitespace-nowrap sm:inline">Quản trị SaaS</span>
+            <ChevronRight size={14} className="hidden shrink-0 sm:block" />
+            <span className="truncate font-medium text-slate-700">
               {tabs.find((item) => item.id === tab)?.name}
             </span>
+          </div>
+          <div className="ml-auto flex min-w-0 max-w-[65%] shrink-0 items-center gap-2.5 sm:max-w-xs sm:gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold uppercase text-slate-600">
+              {operator.accountName.slice(0, 2)}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold" title={operator.accountName}>
+                {operator.accountName}
+              </p>
+              <p className="mt-0.5 truncate text-[10px] text-slate-400 sm:text-[11px]">
+                Quản trị viên nền tảng
+              </p>
+            </div>
           </div>
         </header>
         <main
