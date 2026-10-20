@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
 import { ExternalLink, LoaderCircle, Save } from "lucide-react";
+import { renewalPeriod } from "@/lib/console-rules";
+import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 import { tenantPortalUrl } from "@/lib/tenant-portal";
 import { previewTenantDomains } from "@/lib/tenant-domains";
 import {
@@ -16,10 +18,13 @@ import {
 } from "@/lib/platform-api";
 import {
   Badge,
+  DiscardChangesDialog,
   Field,
   Modal,
   Notice,
+  SuccessNotice,
   amount,
+  dateOnlyText,
   errorText,
   inputClass,
   primaryClass,
@@ -60,6 +65,7 @@ export function TenantPanel({
     [success, setSuccess] = useState("");
   const [conflict, setConflict] = useState(false);
   const [committed, setCommitted] = useState(false);
+  const [confirmReload, setConfirmReload] = useState(false);
   const load = useCallback(async () => {
     const [detail, schoolProfile, branding, subscription, usage] =
       await Promise.all([
@@ -90,7 +96,7 @@ export function TenantPanel({
   useEffect(() => {
     let active = true;
     void load()
-      .catch ((e) => {
+      .catch((e) => {
         if (active) setError(errorText(e));
       })
       .finally(() => {
@@ -124,15 +130,7 @@ export function TenantPanel({
       profile.baseDomain !== saved.profile.baseDomain);
   const dirty =
     profileDirty || settingsDirty || subDirty || statusDirty || renew;
-  useEffect(() => {
-    if (!dirty || committed) return;
-    const warn = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty, committed]);
+  useUnsavedChanges((dirty && !committed) || busy);
   async function reload() {
     setBusy(true);
     setError("");
@@ -180,12 +178,21 @@ export function TenantPanel({
       };
     if (statusDirty)
       changes.status = { status, expectedStatus: saved.detail.tenant.status };
-    if (renew)
-      changes.renewal = {
-        periodStart,
-        periodEnd: new Date(`${periodEnd}T23:59:59+07:00`).toISOString(),
-        expectedRevision: saved.subscription.revision,
-      };
+    if (renew) {
+      try {
+        changes.renewal = {
+          ...renewalPeriod(
+            periodStart,
+            periodEnd,
+            saved.subscription.periodEnd,
+          ),
+          expectedRevision: saved.subscription.revision,
+        };
+      } catch (cause) {
+        setError(errorText(cause));
+        return;
+      }
+    }
     setBusy(true);
     setError("");
     setSuccess("");
@@ -212,6 +219,16 @@ export function TenantPanel({
       setBusy(false);
     }
   }
+  if (confirmReload)
+    return (
+      <DiscardChangesDialog
+        cancel={() => setConfirmReload(false)}
+        discard={() => {
+          setConfirmReload(false);
+          void reload();
+        }}
+      />
+    );
   if (loading)
     return (
       <Modal title="Quản lý trường" close={close}>
@@ -239,7 +256,7 @@ export function TenantPanel({
     (row) =>
       row.resource === "storage_bytes" ||
       row.periodStart.slice(0, 10) ===
-      saved.subscription.periodStart.slice(0, 10),
+        saved.subscription.periodStart.slice(0, 10),
   );
   const resources = [
     ...new Set([
@@ -315,12 +332,8 @@ export function TenantPanel({
               type="button"
               className={secondaryClass}
               onClick={() => {
-                if (
-                  window.confirm(
-                    "Tải lại thông tin sẽ bỏ các thay đổi chưa lưu. Tiếp tục?",
-                  )
-                )
-                  void reload();
+                if (dirty && !committed) setConfirmReload(true);
+                else void reload();
               }}
               disabled={busy}
             >
@@ -328,14 +341,7 @@ export function TenantPanel({
             </button>
           </div>
         )}
-        {success && (
-          <p
-            role="status"
-            className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800"
-          >
-            {success}
-          </p>
-        )}
+        {success && <SuccessNotice>{success}</SuccessNotice>}
         <fieldset disabled={busy || committed} className="min-w-0 space-y-6">
           <div className="grid items-start gap-6 lg:grid-cols-2 lg:gap-8">
             <div className="min-w-0 space-y-6">
@@ -392,11 +398,13 @@ export function TenantPanel({
                   </Field>
                 </div>
                 <p className="text-xs leading-5 text-slate-500">
-                  Subdomain gồm 3–50 chữ thường, số hoặc dấu gạch ngang. Tên miền
-                  gốc không kèm giao thức, cổng hoặc đường dẫn.
+                  Subdomain gồm 3–50 chữ thường, số hoặc dấu gạch ngang. Tên
+                  miền gốc không kèm giao thức, cổng hoặc đường dẫn.
                 </p>
                 <div className="space-y-1 rounded-xl border border-slate-200 bg-white p-3">
-                  <p className="mb-2 text-xs font-semibold">Địa chỉ sau khi lưu</p>
+                  <p className="mb-2 text-xs font-semibold">
+                    Địa chỉ sau khi lưu
+                  </p>
                   {previewTenantDomains(profile.slug, profile.baseDomain).map(
                     (domain) => (
                       <p
@@ -472,14 +480,22 @@ export function TenantPanel({
                   <Field label="Gói dịch vụ">
                     <select
                       value={sub.planId}
-                      onChange={(e) => setSub({ ...sub, planId: e.target.value })}
+                      onChange={(e) =>
+                        setSub({ ...sub, planId: e.target.value })
+                      }
                       className={inputClass}
                     >
+                      {!plans.some((p) => p.id === sub.planId) && (
+                        <option value={sub.planId} disabled>
+                          Gói hiện tại chưa tải được
+                        </option>
+                      )}
                       {plans
-                        .filter((p) => p.active)
+                        .filter((p) => p.active || p.id === sub.planId)
                         .map((p) => (
-                          <option key={p.id} value={p.id}>
+                          <option key={p.id} value={p.id} disabled={!p.active}>
                             {p.name}
+                            {p.active ? "" : " (Ngừng cung cấp)"}
                           </option>
                         ))}
                     </select>
@@ -487,7 +503,9 @@ export function TenantPanel({
                   <Field label="Trạng thái đăng ký">
                     <select
                       value={sub.status}
-                      onChange={(e) => setSub({ ...sub, status: e.target.value })}
+                      onChange={(e) =>
+                        setSub({ ...sub, status: e.target.value })
+                      }
                       disabled={renew}
                       className={inputClass}
                     >
@@ -499,14 +517,8 @@ export function TenantPanel({
                   </Field>
                 </div>
                 <p className="text-xs text-slate-500">
-                  Kỳ hiện tại:{" "}
-                  {new Date(saved.subscription.periodStart).toLocaleDateString(
-                    "vi-VN",
-                  )}{" "}
-                  —{" "}
-                  {new Date(saved.subscription.periodEnd).toLocaleDateString(
-                    "vi-VN",
-                  )}
+                  Kỳ hiện tại: {dateOnlyText(saved.subscription.periodStart)} —{" "}
+                  {dateOnlyText(saved.subscription.periodEnd)}
                 </p>
                 {expired && (
                   <div className="space-y-3 rounded-xl bg-slate-50 p-4">
@@ -545,6 +557,7 @@ export function TenantPanel({
                             <input
                               type="date"
                               required
+                              min={periodStart || undefined}
                               value={periodEnd}
                               onChange={(e) => setPeriodEnd(e.target.value)}
                               className={inputClass}
@@ -559,9 +572,9 @@ export function TenantPanel({
               <section className="space-y-3 border-t border-slate-100 pt-5">
                 <h3 className="font-bold">Mức sử dụng</h3>
                 <p className="text-xs leading-5 text-slate-500">
-                  Dung lượng được tính tích lũy; email và AI tính theo kỳ. Hạn mức
-                  dưới đây thuộc gói đã lưu. “Đang giữ” là phần đã đặt trước cho tác
-                  vụ chưa hoàn tất.
+                  Dung lượng được tính tích lũy; email và AI tính theo kỳ. Hạn
+                  mức dưới đây thuộc gói đã lưu. “Đang giữ” là phần đã đặt trước
+                  cho tác vụ chưa hoàn tất.
                 </p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
@@ -576,8 +589,8 @@ export function TenantPanel({
                     <tbody>
                       {resources.map((resource) => {
                         const rows = currentUsage.filter(
-                          (row) => row.resource === resource,
-                        ),
+                            (row) => row.resource === resource,
+                          ),
                           used = rows.reduce((n, r) => n + r.used, 0),
                           reserved = rows.reduce((n, r) => n + r.reserved, 0);
                         const format = (n: number) =>
@@ -585,7 +598,10 @@ export function TenantPanel({
                             ? `${amount(Math.round((n / 1024 ** 2) * 100) / 100)} MiB`
                             : amount(n);
                         return (
-                          <tr key={resource} className="border-t border-slate-100">
+                          <tr
+                            key={resource}
+                            className="border-t border-slate-100"
+                          >
                             <td className="py-3">
                               {resource === "storage_bytes"
                                 ? "Dung lượng"
@@ -597,7 +613,9 @@ export function TenantPanel({
                             </td>
                             <td>{format(used)}</td>
                             <td>{format(reserved)}</td>
-                            <td>{format(plan?.limits[resource] ?? 0)}</td>
+                            <td>
+                              {plan ? format(plan.limits[resource] ?? 0) : "—"}
+                            </td>
                           </tr>
                         );
                       })}

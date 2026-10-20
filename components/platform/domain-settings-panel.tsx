@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Globe, RefreshCw, ArrowUpRight, CheckCircle2 } from "lucide-react";
+import { Globe, RefreshCw, ArrowUpRight } from "lucide-react";
 import { platformApi, type DomainSettings } from "@/lib/platform-api";
+import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 import { previewTenantDomains } from "@/lib/tenant-domains";
 import {
+  DiscardChangesDialog,
   Field,
+  SuccessNotice,
   Notice,
   errorText,
   inputClass,
@@ -13,12 +16,37 @@ import {
   secondaryClass,
 } from "./console-ui";
 
-export function DomainSettingsPanel({ onSaved }: { onSaved: () => void }) {
+export function DomainSettingsPanel({
+  onSaved,
+  onDirtyChange,
+  onBusyChange,
+}: {
+  onSaved: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
+  onBusyChange?: (busy: boolean) => void;
+}) {
   const [settings, setSettings] = useState<DomainSettings | null>(null);
   const [base, setBase] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [committed, setCommitted] = useState(false);
+  const [confirmReload, setConfirmReload] = useState(false);
+  const dirty = !!settings && base !== settings.baseDomain && !committed;
+  useUnsavedChanges(dirty || busy);
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => {
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
+  useEffect(
+    () => () => {
+      onDirtyChange?.(false);
+      onBusyChange?.(false);
+    },
+    [onDirtyChange, onBusyChange],
+  );
   const load = useCallback(async () => {
     setBusy(true);
     setError("");
@@ -26,8 +54,11 @@ export function DomainSettingsPanel({ onSaved }: { onSaved: () => void }) {
       const value = await platformApi.domainSettings();
       setSettings(value);
       setBase(value.baseDomain);
+      setCommitted(false);
+      return true;
     } catch (e) {
       setError(errorText(e));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -37,20 +68,24 @@ export function DomainSettingsPanel({ onSaved }: { onSaved: () => void }) {
   }, [load]);
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!settings) return;
+    if (!settings || busy || !dirty || committed) return;
     setBusy(true);
     setError("");
     setNotice("");
     try {
       await platformApi.setDomainSettings({ ...settings, baseDomain: base });
-      await load();
-      setNotice("Đã lưu tên miền mặc định cho trường mới.");
-      onSaved();
     } catch (e) {
       setError(errorText(e));
-    } finally {
       setBusy(false);
+      return;
     }
+    setCommitted(true);
+    onSaved();
+    if (await load()) setNotice("Đã lưu tên miền mặc định cho trường mới.");
+    else
+      setError(
+        "Đã lưu tên miền nhưng chưa tải được cấu hình mới. Vui lòng tải lại trước khi tiếp tục chỉnh sửa.",
+      );
   }
   return (
     <section className="space-y-6 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/20 sm:p-7">
@@ -65,19 +100,24 @@ export function DomainSettingsPanel({ onSaved }: { onSaved: () => void }) {
         </p>
       </div>
       {error && <Notice>{error}</Notice>}
-      {notice && (
-        <p
-          role="status"
-          className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700"
-        >
-          <CheckCircle2 size={17} />
-          {notice}
-        </p>
+      {notice && <SuccessNotice>{notice}</SuccessNotice>}
+      {confirmReload && (
+        <DiscardChangesDialog
+          cancel={() => setConfirmReload(false)}
+          discard={() => {
+            setConfirmReload(false);
+            void load();
+          }}
+        />
       )}
       <button
         type="button"
         disabled={busy}
-        onClick={() => void load()}
+        onClick={() => {
+          setNotice("");
+          if (dirty) setConfirmReload(true);
+          else void load();
+        }}
         className={secondaryClass}
       >
         <RefreshCw size={15} className={busy ? "animate-spin" : ""} />
@@ -98,7 +138,7 @@ export function DomainSettingsPanel({ onSaved }: { onSaved: () => void }) {
                 placeholder="estude.vn"
                 autoCapitalize="none"
                 spellCheck={false}
-                disabled={busy}
+                disabled={busy || committed}
                 className={inputClass}
               />
             </Field>
@@ -116,7 +156,11 @@ export function DomainSettingsPanel({ onSaved }: { onSaved: () => void }) {
               Internet. Chứng chỉ *.estude.vn không bao phủ
               admin.nguyen-trai.estude.vn.
             </p>
-            <button type="submit" disabled={busy} className={primaryClass}>
+            <button
+              type="submit"
+              disabled={busy || !dirty || committed}
+              className={primaryClass}
+            >
               Lưu cấu hình tên miền
             </button>
           </div>

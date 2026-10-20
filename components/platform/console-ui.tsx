@@ -7,9 +7,10 @@ import {
   useId,
   useRef,
   useState,
+  type InputHTMLAttributes,
   type ReactNode,
 } from "react";
-import { AlertCircle, Inbox, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Eye, EyeOff, Inbox, X } from "lucide-react";
 
 export const inputClass =
   "w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:bg-slate-50 disabled:opacity-60";
@@ -17,8 +18,12 @@ export const primaryClass =
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-600/10 transition hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50";
 export const secondaryClass =
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50";
+export const dangerClass =
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-50";
 export const dateText = (value: string) =>
-  new Date(value).toLocaleString("vi-VN");
+  new Date(value).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+export const dateOnlyText = (value: string) =>
+  new Date(value).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
 export const amount = (value: number) => value.toLocaleString("vi-VN");
 export function errorText(error: unknown) {
   return error instanceof Error ? error.message : "Không thể xử lý yêu cầu.";
@@ -31,15 +36,99 @@ export function Field({
   children: ReactNode;
 }) {
   const id = useId();
+  const inputId = isValidElement<{ id?: string }>(children)
+    ? (children.props.id ?? id)
+    : id;
   return (
     <div className="block space-y-1.5 text-sm font-medium text-slate-700">
-      <label htmlFor={id} className="block">
+      <label htmlFor={inputId} className="block">
         {label}
       </label>
       {isValidElement<{ id?: string }>(children)
-        ? cloneElement(children, { id })
+        ? cloneElement(children, { id: inputId })
         : children}
     </div>
+  );
+}
+export function PasswordField({
+  label,
+  className = "",
+  ...props
+}: Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & { label: string }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="relative">
+      <Field label={label}>
+        <input
+          {...props}
+          type={visible ? "text" : "password"}
+          className={`${inputClass} pr-12 ${className}`}
+        />
+      </Field>
+      <button
+        type="button"
+        disabled={props.disabled}
+        onClick={() => setVisible((value) => !value)}
+        aria-label={visible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+        title={visible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+        aria-pressed={visible}
+        className="absolute bottom-1 right-1 flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-blue-600 disabled:opacity-50"
+      >
+        {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </div>
+  );
+}
+
+export function SuccessNotice({
+  children,
+  dismiss,
+}: {
+  children: ReactNode;
+  dismiss?: () => void;
+}) {
+  return (
+    <div
+      role="status"
+      className="flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm leading-6 text-emerald-800"
+    >
+      <CheckCircle2 size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+      <div className="min-w-0 flex-1">{children}</div>
+      {dismiss && (
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label="Ẩn thông báo"
+          className="shrink-0 rounded p-1 hover:bg-emerald-100"
+        >
+          <X size={16} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function DiscardChangesDialog({
+  cancel,
+  discard,
+}: {
+  cancel: () => void;
+  discard: () => void;
+}) {
+  return (
+    <Modal title="Hủy bỏ thay đổi?" close={cancel}>
+      <p className="text-sm leading-6 text-slate-600">
+        Dữ liệu đã nhập chưa được lưu. Bạn có muốn bỏ các thay đổi này?
+      </p>
+      <div className="flex flex-wrap justify-end gap-3">
+        <button type="button" className={secondaryClass} onClick={cancel}>
+          Tiếp tục chỉnh sửa
+        </button>
+        <button type="button" className={dangerClass} onClick={discard}>
+          Bỏ thay đổi
+        </button>
+      </div>
+    </Modal>
   );
 }
 export function Notice({ children }: { children: ReactNode }) {
@@ -56,6 +145,7 @@ export function Notice({ children }: { children: ReactNode }) {
 export function Badge({ status }: { status: string }) {
   const label: Record<string, string> = {
     ACTIVE: "Hoạt động",
+    INACTIVE: "Ngừng cung cấp",
     SUSPENDED: "Tạm khóa",
     PROVISIONING: "Đang tạo",
     PENDING: "Đang chờ",
@@ -64,11 +154,14 @@ export function Badge({ status }: { status: string }) {
     TRIAL: "Dùng thử",
     EXPIRED: "Hết hạn",
   };
-  const color = ["ACTIVE", "SUCCEEDED"].includes(status)
-    ? "bg-emerald-50 text-emerald-700"
-    : ["FAILED", "SUSPENDED", "EXPIRED"].includes(status)
-      ? "bg-rose-50 text-rose-700"
-      : "bg-amber-50 text-amber-700";
+  const color =
+    status === "INACTIVE"
+      ? "bg-slate-100 text-slate-600"
+      : ["ACTIVE", "SUCCEEDED"].includes(status)
+        ? "bg-emerald-50 text-emerald-700"
+        : ["FAILED", "SUSPENDED", "EXPIRED"].includes(status)
+          ? "bg-rose-50 text-rose-700"
+          : "bg-amber-50 text-amber-700";
   return (
     <span
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ring-black/5 ${color}`}
@@ -199,6 +292,7 @@ export function Modal({
             {!confirming && titleBadge}
           </div>
           <button
+            type="button"
             onClick={requestClose}
             disabled={closeDisabled}
             aria-label="Đóng"
@@ -232,11 +326,7 @@ export function Modal({
               >
                 Tiếp tục nhập
               </button>
-              <button
-                type="button"
-                className="inline-flex items-center justify-center rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700"
-                onClick={close}
-              >
+              <button type="button" className={dangerClass} onClick={close}>
                 Hủy bỏ thay đổi
               </button>
             </div>

@@ -22,8 +22,6 @@ import {
   Globe,
   LayoutDashboard,
   ArrowRight,
-  Eye,
-  EyeOff,
   LoaderCircle,
   Check,
   LockKeyhole,
@@ -39,12 +37,17 @@ import {
   type Plan,
   type Tenant,
 } from "@/lib/platform-api";
+import { tenantPage } from "@/lib/console-rules";
+import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 import { TenantPanel } from "./tenant-panel";
 import { DomainSettingsPanel } from "./domain-settings-panel";
 import { previewTenantDomains } from "@/lib/tenant-domains";
 import {
   Badge,
   EmptyState,
+  DiscardChangesDialog,
+  PasswordField,
+  SuccessNotice,
   Field,
   Modal,
   Notice,
@@ -63,7 +66,6 @@ function Login({
   onLogin: (operator: Operator) => void;
   initialError: string;
 }) {
-  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -170,29 +172,15 @@ function Login({
                 disabled={busy}
               />
             </Field>
-            <div>
-              <Field label="Mật khẩu">
-                <input
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  required
-                  maxLength={128}
-                  className={inputClass}
-                  placeholder="Nhập mật khẩu"
-                  disabled={busy}
-                />
-              </Field>
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-pressed={showPassword}
-                className="mt-2 inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600"
-              >
-                {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                {showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-              </button>
-            </div>
+            <PasswordField
+              label="Mật khẩu"
+              name="password"
+              autoComplete="current-password"
+              required
+              maxLength={128}
+              placeholder="Nhập mật khẩu"
+              disabled={busy}
+            />
             {(error || initialError) && (
               <Notice>{error || initialError}</Notice>
             )}
@@ -237,15 +225,7 @@ function NewTenant({ done, close }: { done: () => void; close: () => void }) {
     account !== "admin" ||
     password !== "" ||
     baseDomain !== initialDomain;
-  useEffect(() => {
-    if (!dirty && !busy) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty, busy]);
+  useUnsavedChanges(dirty || busy);
   const loadDomain = useCallback(async () => {
     setError("");
     setDomainReady(false);
@@ -263,6 +243,7 @@ function NewTenant({ done, close }: { done: () => void; close: () => void }) {
   }, [loadDomain]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     const form = event.currentTarget,
       data = new FormData(form);
     setBusy(true);
@@ -375,20 +356,17 @@ function NewTenant({ done, close }: { done: () => void; close: () => void }) {
                 className={inputClass}
               />
             </Field>
-            <Field label="Mật khẩu admin của trường">
-              <input
-                name="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={busy}
-                type="password"
-                required
-                minLength={8}
-                maxLength={128}
-                autoComplete="new-password"
-                className={inputClass}
-              />
-            </Field>
+            <PasswordField
+              label="Mật khẩu admin của trường"
+              name="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={busy}
+              required
+              minLength={8}
+              maxLength={128}
+              autoComplete="new-password"
+            />
             <p className="text-xs text-slate-500">
               8–128 ký tự, có chữ hoa, chữ thường, số và ký tự đặc biệt; không
               chứa khoảng trắng. Lưu mật khẩu trước khi tạo.
@@ -421,8 +399,11 @@ function NewTenant({ done, close }: { done: () => void; close: () => void }) {
 function NewPlan({ done, close }: { done: () => void; close: () => void }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [dirty, setDirty] = useState(false);
+  useUnsavedChanges(dirty || busy);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     const data = new FormData(event.currentTarget);
     setBusy(true);
     setError("");
@@ -452,87 +433,100 @@ function NewPlan({ done, close }: { done: () => void; close: () => void }) {
     }
   }
   return (
-    <Modal title="Tạo gói dịch vụ" close={close}>
-      <form onSubmit={submit} className="space-y-4">
-        <Field label="Tên gói">
-          <input
-            name="name"
-            required
-            minLength={2}
-            maxLength={120}
-            className={inputClass}
-          />
-        </Field>
-        <Field label="Mã gói">
-          <input
-            name="code"
-            required
-            pattern="[a-z][a-z0-9_]{1,63}"
-            placeholder="school_pro"
-            className={inputClass}
-          />
-        </Field>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Dung lượng (GiB)">
-            <input
-              type="number"
-              name="storage"
-              min={0}
-              max={931}
-              step={1}
-              required
-              defaultValue={5}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="AI tokens / kỳ">
-            <input
-              type="number"
-              name="tokens"
-              min={0}
-              max={1000000000000}
-              step={1}
-              required
-              defaultValue={100000}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Email / kỳ">
-            <input
-              type="number"
-              name="emails"
-              min={0}
-              max={1000000000000}
-              step={1}
-              required
-              defaultValue={1000}
-              className={inputClass}
-            />
-          </Field>
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="ai" defaultChecked /> Cho phép tính năng
-          AI khi module tương ứng sẵn sàng
-        </label>
-        <p className="text-xs leading-5 text-slate-500">
-          Đây là gói và hạn mức nội bộ. Việc tạo hoặc gán gói không thực hiện
-          thu tiền.
-        </p>
-        {error && <Notice>{error}</Notice>}
-        <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={close}
-            className={secondaryClass}
-            disabled={busy}
-          >
-            Hủy
-          </button>
-          <button type="submit" disabled={busy} className={primaryClass}>
-            {busy ? "Đang lưu…" : "Tạo gói"}
-          </button>
-        </div>
-      </form>
+    <Modal
+      title="Tạo gói dịch vụ"
+      close={close}
+      confirmDiscard={dirty}
+      closeDisabled={busy}
+    >
+      {(requestClose) => (
+        <form
+          onSubmit={submit}
+          onChange={() => setDirty(true)}
+          className="space-y-4"
+        >
+          <fieldset disabled={busy} className="min-w-0 space-y-4">
+            <Field label="Tên gói">
+              <input
+                name="name"
+                required
+                minLength={2}
+                maxLength={120}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Mã gói">
+              <input
+                name="code"
+                required
+                pattern="[a-z][a-z0-9_]{1,63}"
+                placeholder="school_pro"
+                className={inputClass}
+              />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Dung lượng (GiB)">
+                <input
+                  type="number"
+                  name="storage"
+                  min={0}
+                  max={931}
+                  step={1}
+                  required
+                  defaultValue={5}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="AI tokens / kỳ">
+                <input
+                  type="number"
+                  name="tokens"
+                  min={0}
+                  max={1000000000000}
+                  step={1}
+                  required
+                  defaultValue={100000}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Email / kỳ">
+                <input
+                  type="number"
+                  name="emails"
+                  min={0}
+                  max={1000000000000}
+                  step={1}
+                  required
+                  defaultValue={1000}
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="ai" defaultChecked /> Cho phép tính
+              năng AI
+            </label>
+            <p className="text-xs leading-5 text-slate-500">
+              Đây là gói và hạn mức nội bộ. Việc tạo hoặc gán gói không thực
+              hiện thu tiền.
+            </p>
+            {error && <Notice>{error}</Notice>}
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={requestClose}
+                className={secondaryClass}
+                disabled={busy}
+              >
+                Hủy
+              </button>
+              <button type="submit" disabled={busy} className={primaryClass}>
+                {busy ? "Đang lưu…" : "Tạo gói"}
+              </button>
+            </div>
+          </fieldset>
+        </form>
+      )}
     </Modal>
   );
 }
@@ -562,12 +556,29 @@ export function PlatformConsole() {
   const [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false);
+  const [directoryError, setDirectoryError] = useState("");
+  const [plansError, setPlansError] = useState("");
+  const [domainDirty, setDomainDirty] = useState(false);
+  const [domainBusy, setDomainBusy] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<
+    Tab | "logout" | null
+  >(null);
+  function changeTab(next: Tab) {
+    if (next === tab || domainBusy) return;
+    if (domainDirty) setPendingNavigation(next);
+    else setTab(next);
+  }
   const loadSequence = useRef(0);
   const [modal, setModal] = useState<"tenant" | "plan" | null>(null),
     [selected, setSelected] = useState<string | null>(null);
   const clearSession = useCallback((message = "") => {
     ++loadSequence.current;
     setOperator(null);
+    setDomainDirty(false);
+    setDomainBusy(false);
+    setDirectoryError("");
+    setPlansError("");
+    setPendingNavigation(null);
     setSelected(null);
     setModal(null);
     setOverview(null);
@@ -609,17 +620,46 @@ export function PlatformConsole() {
     const sequence = ++loadSequence.current;
     setBusy(true);
     try {
-      const [summary, directory, packages] = await Promise.all([
+      const [summary, directory, packages] = await Promise.allSettled([
         platformApi.overview(),
         platformApi.tenants(query, status, page),
         platformApi.plans(),
       ]);
       if (sequence !== loadSequence.current) return;
-      setOverview(summary);
-      setTenants(directory.data);
-      setTotal(directory.total);
-      setPlans(packages);
-      setError("");
+      const failures = [summary, directory, packages].filter(
+        (result) => result.status === "rejected",
+      );
+      if (
+        failures.some(
+          (result) =>
+            result.reason instanceof PlatformError &&
+            result.reason.status === 401,
+        )
+      ) {
+        clearSession(expiredSessionMessage);
+        return;
+      }
+      if (summary.status === "fulfilled") setOverview(summary.value);
+      if (packages.status === "fulfilled") {
+        setPlans(packages.value);
+        setPlansError("");
+      } else setPlansError(errorText(packages.reason));
+      if (directory.status === "fulfilled") {
+        setDirectoryError("");
+        const validPage = tenantPage(directory.value.total, page);
+        if (validPage !== page) {
+          setPage(validPage);
+          return;
+        }
+        setTenants(directory.value.data);
+        setTotal(directory.value.total);
+      } else {
+        // Do not label the previous search's rows as results of the new filter.
+        setTenants([]);
+        setTotal(0);
+        setDirectoryError(errorText(directory.reason));
+      }
+      setError(failures.map((result) => errorText(result.reason)).join(" "));
     } catch (error) {
       if (sequence !== loadSequence.current) return;
       if (error instanceof PlatformError && error.status === 401) {
@@ -636,12 +676,24 @@ export function PlatformConsole() {
   }, [operator, load]);
   useEffect(() => {
     if (!operator || !overview?.pending) return;
-    const timer = setInterval(() => {
-      void load();
-    }, 5000);
-    return () => clearInterval(timer);
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      await load();
+      if (!stopped) timer = setTimeout(poll, 5000);
+    };
+    timer = setTimeout(poll, 5000);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
   }, [operator, overview?.pending, load]);
-  async function logout() {
+  function logout() {
+    if (domainBusy) return;
+    if (domainDirty) setPendingNavigation("logout");
+    else void executeLogout();
+  }
+  async function executeLogout() {
     setBusy(true);
     try {
       await platformApi.logout();
@@ -701,14 +753,28 @@ export function PlatformConsole() {
             </span>
           </div>
         </div>
-        <p className="mb-3 mt-12 px-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+        <div className="mt-6 flex items-center gap-3 border-t border-slate-100 px-2 pt-5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold uppercase text-slate-600">
+            {operator.accountName.slice(0, 2)}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">
+              {operator.accountName}
+            </p>
+            <p className="mt-0.5 text-[11px] text-slate-400">
+              Quản trị viên nền tảng
+            </p>
+          </div>
+        </div>
+        <p className="mb-3 mt-8 px-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
           Không gian làm việc
         </p>
         <nav className="space-y-1.5" aria-label="Điều hướng quản trị">
           {tabs.map((item) => (
             <button
               key={item.id}
-              onClick={() => setTab(item.id)}
+              onClick={() => changeTab(item.id)}
+              disabled={domainBusy}
               aria-pressed={tab === item.id}
               className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${tab === item.id ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}`}
             >
@@ -717,20 +783,7 @@ export function PlatformConsole() {
             </button>
           ))}
         </nav>
-        <div className="mt-auto space-y-5 pt-8">
-          <div className="flex items-center gap-3 border-t border-slate-100 px-2 pt-5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold uppercase text-slate-600">
-              {operator.accountName.slice(0, 2)}
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">
-                {operator.accountName}
-              </p>
-              <p className="mt-0.5 text-[11px] text-slate-400">
-                Quản trị viên nền tảng
-              </p>
-            </div>
-          </div>
+        <div className="mt-auto pt-8">
           <button
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
             onClick={logout}
@@ -799,7 +852,8 @@ export function PlatformConsole() {
             {tabs.map((item) => (
               <button
                 key={item.id}
-                onClick={() => setTab(item.id)}
+                onClick={() => changeTab(item.id)}
+                disabled={domainBusy}
                 aria-pressed={tab === item.id}
                 className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2.5 text-xs font-medium ${tab === item.id ? "bg-blue-50 text-blue-700" : "text-slate-500"}`}
               >
@@ -818,15 +872,9 @@ export function PlatformConsole() {
           </nav>
           {error && <Notice>{error}</Notice>}
           {notice && (
-            <div
-              role="status"
-              className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
-            >
+            <SuccessNotice dismiss={() => setNotice("")}>
               {notice}
-              <button onClick={() => setNotice("")} aria-label="Ẩn thông báo">
-                <X size={16} />
-              </button>
-            </div>
+            </SuccessNotice>
           )}
           <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             {[
@@ -893,7 +941,7 @@ export function PlatformConsole() {
                   </p>
                   <div className="mt-6 flex flex-wrap gap-3">
                     <button
-                      onClick={() => setTab("domains")}
+                      onClick={() => changeTab("domains")}
                       className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-blue-800 shadow-sm hover:bg-blue-50"
                     >
                       <Globe size={15} />
@@ -901,7 +949,7 @@ export function PlatformConsole() {
                       <ArrowRight size={14} />
                     </button>
                     <button
-                      onClick={() => setTab("plans")}
+                      onClick={() => changeTab("plans")}
                       className="inline-flex items-center gap-2 rounded-xl border border-white/25 px-4 py-2.5 text-xs font-medium text-white hover:bg-white/10"
                     >
                       Xem gói dịch vụ
@@ -918,9 +966,7 @@ export function PlatformConsole() {
                 <p className="mt-2 text-xs leading-5 text-slate-400">
                   Tiến trình khởi tạo không gian cho các trường.
                 </p>
-                <div
-                  className="mt-5 flex w-full items-center justify-between rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900"
-                >
+                <div className="mt-5 flex w-full items-center justify-between rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
                   <span className="flex items-center gap-2">
                     <ListChecks size={17} />
                     Yêu cầu đang chờ
@@ -929,9 +975,7 @@ export function PlatformConsole() {
                     {overview ? amount(overview.pending) : "—"}
                   </span>
                 </div>
-                <div
-                  className="mt-2 flex w-full items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600"
-                >
+                <div className="mt-2 flex w-full items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
                   <span>Tạo trường thất bại</span>
                   <span
                     className={
@@ -947,7 +991,11 @@ export function PlatformConsole() {
             </div>
           )}
           {tab === "domains" && (
-            <DomainSettingsPanel onSaved={() => void load()} />
+            <DomainSettingsPanel
+              onSaved={() => void load()}
+              onDirtyChange={setDomainDirty}
+              onBusyChange={setDomainBusy}
+            />
           )}
           {(tab === "tenants" || tab === "overview") && (
             <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/20">
@@ -963,7 +1011,7 @@ export function PlatformConsole() {
                     className="flex w-full min-w-0 gap-2 sm:w-auto sm:flex-1 md:flex-none"
                     onSubmit={(event) => {
                       event.preventDefault();
-                      setQuery(draft);
+                      setQuery(draft.trim());
                       setPage(0);
                     }}
                   >
@@ -986,7 +1034,7 @@ export function PlatformConsole() {
                       setStatus(e.target.value);
                       setPage(0);
                     }}
-                    className="min-h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-600"
+                    className={`${inputClass} !w-auto`}
                   >
                     <option value="">Tất cả trạng thái</option>
                     <option value="ACTIVE">Hoạt động</option>
@@ -1106,21 +1154,21 @@ export function PlatformConsole() {
                   ) : (
                     <EmptyState
                       title={
-                        error
+                        directoryError
                           ? "Chưa tải được danh sách trường"
                           : query || status
                             ? "Không tìm thấy trường phù hợp"
                             : "Bắt đầu với trường học đầu tiên"
                       }
                       description={
-                        error
+                        directoryError
                           ? "Thử làm mới để tải lại dữ liệu."
                           : query || status
                             ? "Thử một tên trường khác hoặc xóa bộ lọc hiện tại."
                             : "Tạo trường để thiết lập không gian học tập và tài khoản quản trị riêng."
                       }
                     >
-                      {!error && !query && !status && (
+                      {!directoryError && !query && !status && (
                         <button
                           className={primaryClass}
                           onClick={() => setModal("tenant")}
@@ -1178,9 +1226,12 @@ export function PlatformConsole() {
                     key={plan.id}
                     className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md"
                   >
-                    <p className="text-xs uppercase tracking-widest text-blue-600">
-                      {plan.code}
-                    </p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs uppercase tracking-widest text-blue-600">
+                        {plan.code}
+                      </p>
+                      {!plan.active && <Badge status="INACTIVE" />}
+                    </div>
                     <h3 className="mt-2 text-xl font-bold">{plan.name}</h3>
                     <dl className="mt-5 space-y-3 text-sm">
                       {Object.entries(plan.limits ?? {}).map(
@@ -1216,8 +1267,18 @@ export function PlatformConsole() {
               </div>
               {!plans.length && (
                 <EmptyState
-                  title={busy ? "Đang tải gói dịch vụ…" : "Chưa có gói dịch vụ"}
-                  description="Tạo gói để quản lý tính năng và hạn mức sử dụng cho từng trường."
+                  title={
+                    busy
+                      ? "Đang tải gói dịch vụ…"
+                      : plansError
+                        ? "Chưa tải được gói dịch vụ"
+                        : "Chưa có gói dịch vụ"
+                  }
+                  description={
+                    plansError
+                      ? "Thử làm mới để tải lại danh sách gói."
+                      : "Tạo gói để quản lý tính năng và hạn mức sử dụng cho từng trường."
+                  }
                 />
               )}
               <p className="text-xs text-slate-500">
@@ -1228,6 +1289,20 @@ export function PlatformConsole() {
           )}
         </main>
       </div>
+      {pendingNavigation && (
+        <DiscardChangesDialog
+          cancel={() => setPendingNavigation(null)}
+          discard={() => {
+            const next = pendingNavigation;
+            setPendingNavigation(null);
+            if (next === "logout") void executeLogout();
+            else {
+              setDomainDirty(false);
+              setTab(next);
+            }
+          }}
+        />
+      )}
       {modal === "tenant" && (
         <NewTenant
           close={() => setModal(null)}
