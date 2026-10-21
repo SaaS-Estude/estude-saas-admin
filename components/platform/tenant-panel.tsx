@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
+import Image from "next/image";
 import { ExternalLink, LoaderCircle, Save } from "lucide-react";
 import { renewalPeriod } from "@/lib/console-rules";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
@@ -120,7 +121,8 @@ export function TenantPanel({
     !!settings &&
     !!saved &&
     (settings.displayName !== saved.settings.displayName ||
-      settings.primaryColor !== saved.settings.primaryColor);
+      settings.primaryColor !== saved.settings.primaryColor ||
+      (settings.logoDataUrl ?? "") !== (saved.settings.logoDataUrl ?? ""));
   const subDirty =
     !!sub &&
     !!saved &&
@@ -135,6 +137,24 @@ export function TenantPanel({
   const dirty =
     profileDirty || settingsDirty || subDirty || statusDirty || renew;
   useUnsavedChanges((dirty && !committed) || busy);
+  async function selectLogo(file?: File) {
+    if (!file || busy || !settings) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 512 * 1024 || file.size === 0) {
+      setError("Chọn ảnh PNG, JPG hoặc WebP, tối đa 512 KB.");
+      return;
+    }
+    setBusy(true); setError(""); setSuccess("");
+    try {
+      const data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Không đọc được ảnh logo."));
+        reader.readAsDataURL(file);
+      });
+      setSettings((current) => current ? { ...current, logoDataUrl: data } : current);
+    } catch (cause) { setError(errorText(cause)); }
+    finally { setBusy(false); }
+  }
   async function reload() {
     setBusy(true);
     setError("");
@@ -174,6 +194,7 @@ export function TenantPanel({
         displayName: settings.displayName,
         primaryColor: settings.primaryColor,
         expectedRevision: saved.settings.revision,
+        ...((settings.logoDataUrl ?? "") !== (saved.settings.logoDataUrl ?? "") ? {logoDataUrl: settings.logoDataUrl ?? ""} : {}),
       };
     if (subDirty)
       changes.subscription = {
@@ -470,6 +491,16 @@ export function TenantPanel({
                     maxLength={150}
                     className={inputClass}
                   />
+                </Field>
+                <Field label="Logo trường">
+                  <div className="flex flex-wrap items-center gap-4">
+                    {settings.logoDataUrl ? <Image unoptimized src={settings.logoDataUrl} alt="Logo trường" width={80} height={80} className="size-20 rounded-xl border border-slate-200 bg-white p-1 object-contain" /> : <div className="grid size-20 place-items-center rounded-xl border border-dashed border-slate-300 text-xs text-slate-500">Chưa có logo</div>}
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <input type="file" aria-label="Chọn logo trường" accept="image/png,image/jpeg,image/webp" className="block w-full text-sm" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; void selectLogo(file); }} />
+                      {settings.logoDataUrl ? <button type="button" className="text-sm font-semibold text-rose-700" onClick={() => setSettings({ ...settings, logoDataUrl: "" })}>Gỡ logo</button> : null}
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">PNG, JPG hoặc WebP, tối đa 512 KB. Logo dùng ở trang đăng nhập, thanh điều hướng và biểu tượng tab của trường. Bấm Lưu thay đổi để áp dụng; gỡ logo để dùng lại EStude.</p>
                 </Field>
                 <Field label="Màu thương hiệu">
                   <input

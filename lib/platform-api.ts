@@ -42,6 +42,7 @@ export type Subscription = {
   revision: number;
 };
 export type Settings = {
+  logoDataUrl?: string;
   displayName: string;
   primaryColor: string;
   timezone: string;
@@ -76,6 +77,7 @@ export type TenantAdminAccount = {
 export type TenantUpdate = {
   profile?: Omit<TenantProfile, "revision"> & { expectedRevision: number };
   settings?: Pick<Settings, "displayName" | "primaryColor"> & {
+    logoDataUrl?: string;
     expectedRevision: number;
   };
   subscription?: Pick<Subscription, "planId" | "status"> & {
