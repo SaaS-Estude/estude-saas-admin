@@ -41,6 +41,7 @@ import { tenantPage } from "@/lib/console-rules";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 import { TenantPanel } from "./tenant-panel";
 import { DomainSettingsPanel } from "./domain-settings-panel";
+import { BillingOrdersPanel } from "./billing-orders-panel";
 import { previewTenantDomains } from "@/lib/tenant-domains";
 import {
   Badge,
@@ -341,7 +342,7 @@ function NewTenant({ done, close }: { done: () => void; close: () => void }) {
                 </p>
               ))}
               <p>
-                Cần cấu hình DNS và HTTPS cho tên miền thật trước khi sử dụng.
+                DNS và HTTPS được tự thiết lập nếu máy chủ đã bật kết nối Cloudflare và Vercel.
               </p>
             </div>
             <Field label="Tài khoản admin của trường">
@@ -396,10 +397,11 @@ function NewTenant({ done, close }: { done: () => void; close: () => void }) {
   );
 }
 
-function NewPlan({ done, close }: { done: () => void; close: () => void }) {
+function NewPlan({ done, close, plan }: { done: () => void; close: () => void; plan?: Plan }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [publicSale, setPublicSale] = useState(plan?.publicSale ?? true);
   useUnsavedChanges(dirty || busy);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -415,9 +417,31 @@ function NewPlan({ done, close }: { done: () => void; close: () => void }) {
         ![gib, tokens, emails].every((n) => Number.isSafeInteger(n) && n >= 0)
       )
         throw new Error("Hạn mức phải là số nguyên không âm.");
-      await platformApi.createPlan({
-        code: String(data.get("code")),
+      const prices: Partial<Record<"MONTH" | "YEAR", number>> = {};
+      for (const cycle of ["MONTH", "YEAR"] as const) {
+        const raw = String(data.get(cycle) ?? "").trim();
+        if (!raw) continue;
+        const price = Number(raw);
+        if (!Number.isSafeInteger(price) || price < 2000 || price > 1000000000)
+          throw new Error("Giá phải là số nguyên từ 2.000 đến 1.000.000.000 đồng.");
+        prices[cycle] = price;
+      }
+      const sale = {
         name: String(data.get("name")),
+        description: String(data.get("description") ?? ""),
+        tier: Number(data.get("tier") ?? 1),
+        sortOrder: Number(data.get("sortOrder") ?? 0),
+        publicSale: data.get("publicSale") === "on",
+        prices,
+      };
+      if (sale.publicSale && (!Object.keys(prices).length || sale.tier < 1))
+        throw new Error("Gói mở bán cần ít nhất một giá tháng/năm và cấp bậc từ 1 trở lên.");
+      if (plan) await platformApi.updatePlanSale(plan.id, {
+        ...sale, active: data.get("active") === "on", expectedRevision: plan.revision,
+      });
+      else await platformApi.createPlan({
+        ...sale,
+        code: String(data.get("code")),
         limits: {
           storage_bytes: gib * 1024 ** 3,
           ai_tokens: tokens,
@@ -434,7 +458,7 @@ function NewPlan({ done, close }: { done: () => void; close: () => void }) {
   }
   return (
     <Modal
-      title="Tạo gói dịch vụ"
+      title={plan ? "Chỉnh sửa gói & giá bán" : "Tạo gói dịch vụ"}
       close={close}
       confirmDiscard={dirty}
       closeDisabled={busy}
@@ -452,6 +476,7 @@ function NewPlan({ done, close }: { done: () => void; close: () => void }) {
                 required
                 minLength={2}
                 maxLength={120}
+                defaultValue={plan?.name}
                 className={inputClass}
               />
             </Field>
@@ -461,9 +486,39 @@ function NewPlan({ done, close }: { done: () => void; close: () => void }) {
                 required
                 pattern="[a-z][a-z0-9_]{1,63}"
                 placeholder="school_pro"
+                defaultValue={plan?.code}
+                disabled={!!plan}
                 className={inputClass}
               />
             </Field>
+            <Field label="Mô tả hiển thị trên bảng giá">
+              <textarea name="description" maxLength={500} rows={3} defaultValue={plan?.description} className={inputClass} />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Giá tháng (VND)">
+                <input name="MONTH" type="number" min={2000} max={1000000000} step={1} defaultValue={plan?.prices?.MONTH} placeholder="299000" className={inputClass} />
+              </Field>
+              <Field label="Giá năm (VND)">
+                <input name="YEAR" type="number" min={2000} max={1000000000} step={1} defaultValue={plan?.prices?.YEAR} placeholder="2990000" className={inputClass} />
+              </Field>
+            </div>
+            <p className="text-xs text-slate-500">Để trống một giá nếu không bán theo chu kỳ đó. Giá đã bao gồm thuế.</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Cấp bậc gói">
+                <input name="tier" type="number" required min={publicSale ? 1 : 0} max={100} step={1} defaultValue={plan?.tier ?? 1} className={inputClass} />
+              </Field>
+              <Field label="Thứ tự hiển thị">
+                <input name="sortOrder" type="number" required min={0} max={10000} step={1} defaultValue={plan?.sortOrder ?? 0} className={inputClass} />
+              </Field>
+            </div>
+            <p className="text-xs text-slate-500">Cấp bậc lớn hơn là gói nâng cấp. Thứ tự nhỏ hơn được hiển thị trước.</p>
+            <label className="flex items-center gap-2 text-sm">
+              <input name="publicSale" type="checkbox" checked={publicSale} disabled={plan?.code === "starter"} onChange={(e) => setPublicSale(e.target.checked)} />
+              Hiển thị trên bảng giá và cho phép mua
+            </label>
+            {plan && <label className="flex items-center gap-2 text-sm">
+              <input name="active" type="checkbox" defaultChecked={plan.active} /> Gói đang hoạt động
+            </label>}
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label="Dung lượng (GiB)">
                 <input
@@ -473,11 +528,12 @@ function NewPlan({ done, close }: { done: () => void; close: () => void }) {
                   max={931}
                   step={1}
                   required
-                  defaultValue={5}
+                  defaultValue={plan ? (plan.limits?.storage_bytes ?? 0) / 1024 ** 3 : 5}
+                  disabled={!!plan}
                   className={inputClass}
                 />
               </Field>
-              <Field label="AI tokens / kỳ">
+              <Field label="AI tokens / tháng">
                 <input
                   type="number"
                   name="tokens"
@@ -485,11 +541,12 @@ function NewPlan({ done, close }: { done: () => void; close: () => void }) {
                   max={1000000000000}
                   step={1}
                   required
-                  defaultValue={100000}
+                  defaultValue={plan ? plan.limits?.ai_tokens ?? 0 : 100000}
+                  disabled={!!plan}
                   className={inputClass}
                 />
               </Field>
-              <Field label="Email / kỳ">
+              <Field label="Email / tháng">
                 <input
                   type="number"
                   name="emails"
@@ -497,18 +554,18 @@ function NewPlan({ done, close }: { done: () => void; close: () => void }) {
                   max={1000000000000}
                   step={1}
                   required
-                  defaultValue={1000}
+                  defaultValue={plan ? plan.limits?.email_messages ?? 0 : 1000}
+                  disabled={!!plan}
                   className={inputClass}
                 />
               </Field>
             </div>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="ai" defaultChecked /> Cho phép tính
+              <input type="checkbox" name="ai" defaultChecked={plan ? plan.features?.ai : true} disabled={!!plan} /> Cho phép tính
               năng AI
             </label>
             <p className="text-xs leading-5 text-slate-500">
-              Đây là gói và hạn mức nội bộ. Việc tạo hoặc gán gói không thực
-              hiện thu tiền.
+              {plan ? "Giá mới áp dụng cho đơn tạo sau khi lưu. Đơn đã tạo giữ nguyên số tiền. Hạn mức được giữ để bảo toàn quyền lợi các trường đang dùng gói." : "Gói được mở bán sẽ xuất hiện trên trang quảng cáo để khách chọn mua và thanh toán qua PayOS."}
             </p>
             {error && <Notice>{error}</Notice>}
             <div className="flex justify-end gap-3">
@@ -521,7 +578,7 @@ function NewPlan({ done, close }: { done: () => void; close: () => void }) {
                 Hủy
               </button>
               <button type="submit" disabled={busy} className={primaryClass}>
-                {busy ? "Đang lưu…" : "Tạo gói"}
+                {busy ? "Đang lưu…" : plan ? "Lưu thay đổi" : "Tạo gói"}
               </button>
             </div>
           </fieldset>
@@ -536,6 +593,7 @@ const tabs = [
   { id: "tenants", name: "Trường học", icon: Building2 },
   { id: "domains", name: "Tên miền", icon: Globe },
   { id: "plans", name: "Gói dịch vụ", icon: Layers3 },
+  { id: "orders", name: "Đơn thanh toán", icon: ListChecks },
 ] as const;
 type Tab = (typeof tabs)[number]["id"];
 const expiredSessionMessage =
@@ -571,6 +629,7 @@ export function PlatformConsole() {
   const loadSequence = useRef(0);
   const [modal, setModal] = useState<"tenant" | "plan" | null>(null),
     [selected, setSelected] = useState<string | null>(null);
+  const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const clearSession = useCallback((message = "") => {
     ++loadSequence.current;
     setOperator(null);
@@ -581,6 +640,7 @@ export function PlatformConsole() {
     setPendingNavigation(null);
     setSelected(null);
     setModal(null);
+    setEditingPlan(null);
     setOverview(null);
     setTenants([]);
     setTotal(0);
@@ -1213,7 +1273,7 @@ export function PlatformConsole() {
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold">Gói dịch vụ</h2>
                 <button
-                  onClick={() => setModal("plan")}
+                  onClick={() => { setEditingPlan(null); setModal("plan"); }}
                   className={primaryClass}
                 >
                   <Plus size={16} />
@@ -1233,6 +1293,13 @@ export function PlatformConsole() {
                       {!plan.active && <Badge status="INACTIVE" />}
                     </div>
                     <h3 className="mt-2 text-xl font-bold">{plan.name}</h3>
+                    <p className="mt-2 text-sm text-slate-500">{plan.description}</p>
+                    <p className="mt-3 text-sm font-semibold text-blue-700">{plan.active && plan.publicSale ? "Đang mở bán" : "Ẩn khỏi bảng giá"}</p>
+                    <dl className="mt-3 space-y-2 text-sm">
+                      <div className="flex justify-between"><dt>Giá tháng</dt><dd className="font-semibold">{plan.prices?.MONTH === undefined ? "Không bán" : `${amount(plan.prices.MONTH)} ₫`}</dd></div>
+                      <div className="flex justify-between"><dt>Giá năm</dt><dd className="font-semibold">{plan.prices?.YEAR === undefined ? "Không bán" : `${amount(plan.prices.YEAR)} ₫`}</dd></div>
+                      <div className="flex justify-between text-slate-500"><dt>Cấp bậc / thứ tự</dt><dd>{plan.tier} / {plan.sortOrder}</dd></div>
+                    </dl>
                     <dl className="mt-5 space-y-3 text-sm">
                       {Object.entries(plan.limits ?? {}).map(
                         ([resource, value]) => (
@@ -1244,9 +1311,9 @@ export function PlatformConsole() {
                               {resource === "storage_bytes"
                                 ? "Dung lượng"
                                 : resource === "ai_tokens"
-                                  ? "AI tokens / kỳ"
+                                  ? "AI tokens / tháng"
                                   : resource === "email_messages"
-                                    ? "Email / kỳ"
+                                    ? "Email / tháng"
                                     : resource}
                             </dt>
                             <dd className="font-semibold">
@@ -1262,6 +1329,7 @@ export function PlatformConsole() {
                         <dd>{plan.features?.ai ? "Cho phép" : "Tắt"}</dd>
                       </div>
                     </dl>
+                    <button type="button" className={`${secondaryClass} mt-5 w-full`} onClick={() => { setEditingPlan(plan); setModal("plan"); }}>Chỉnh sửa gói & giá</button>
                   </article>
                 ))}
               </div>
@@ -1282,11 +1350,11 @@ export function PlatformConsole() {
                 />
               )}
               <p className="text-xs text-slate-500">
-                Gói nội bộ và quota đang có hiệu lực; chưa tích hợp thanh toán
-                tự động.
+                Gói đang hoạt động, có giá và được mở bán sẽ hiển thị tại <a href="/" target="_blank" rel="noreferrer" className="font-semibold text-blue-600 underline">trang bảng giá</a>. Đơn hàng PayOS nằm ở thẻ “Đơn thanh toán”.
               </p>
             </section>
           )}
+          {tab === "orders" && <BillingOrdersPanel />}
         </main>
       </div>
       {pendingNavigation && (
@@ -1322,10 +1390,12 @@ export function PlatformConsole() {
       )}
       {modal === "plan" && (
         <NewPlan
+          plan={editingPlan ?? undefined}
           close={() => setModal(null)}
           done={() => {
             setModal(null);
-            setNotice("Đã tạo gói dịch vụ.");
+            setNotice(editingPlan ? "Đã cập nhật gói và giá bán." : "Đã tạo gói dịch vụ.");
+            setEditingPlan(null);
             void load();
           }}
         />

@@ -18,7 +18,7 @@ test('logo selection stays in the draft and one confirmation saves branding; rem
  const {TenantPanel}=loadComponent('components/platform/tenant-panel.tsx',{
   'next/image':{default:p=>React.createElement('img',p)},
   '@/lib/platform-api':{platformApi:api},'./tenant-admin-password-panel':{TenantAdminPasswordPanel:()=>null},
-  '@/lib/tenant-domains':{previewTenantDomains:()=>[]},'@/lib/tenant-portal':{tenantPortalUrl:()=>''},'@/lib/use-unsaved-changes':hooks,'@/lib/console-rules':rules,
+  './domain-provision-panel':{DomainProvisionPanel:()=>null},'@/lib/tenant-domains':{previewTenantDomains:()=>[]},'@/lib/tenant-portal':{tenantPortalUrl:()=>''},'@/lib/use-unsaved-changes':hooks,'@/lib/console-rules':rules,
   './console-ui':{...ui,Modal:({children,footer,close})=>React.createElement('test-modal',null,children,typeof footer==='function'?footer(close):footer),DiscardChangesDialog:()=>null},
  });
  let renderer;await act(async()=>{renderer=create(React.createElement(TenantPanel,{id:'school-id',plans:[{id:'plan',active:true,limits:{}}],close(){},updated(){}}));await new Promise(setImmediate);});

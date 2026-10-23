@@ -50,6 +50,7 @@ const button = (renderer, label) =>
 function domainPanel(api) {
   return loadComponent("components/platform/domain-settings-panel.tsx", {
     "@/lib/platform-api": { platformApi: api },
+    "./domain-provision-panel": { DomainProvisionPanel: () => null },
     "@/lib/tenant-domains": { previewTenantDomains: () => [] },
     "@/lib/use-unsaved-changes": hooks,
     "./console-ui": {
@@ -179,7 +180,8 @@ function consoleModule(api, components = {}) {
         PlatformError,
         onPlatformSessionExpired: () => noop,
       },
-      "@/lib/tenant-domains": { previewTenantDomains: () => [] },
+      "./domain-provision-panel": { DomainProvisionPanel: () => null },
+    "@/lib/tenant-domains": { previewTenantDomains: () => [] },
       "@/lib/console-rules": rules,
       "@/lib/use-unsaved-changes": hooks,
       "./console-ui": {
@@ -190,6 +192,7 @@ function consoleModule(api, components = {}) {
       },
       "./tenant-panel": { TenantPanel: () => null },
       "./domain-settings-panel": { DomainSettingsPanel: () => null },
+      "./billing-orders-panel": { BillingOrdersPanel: () => null },
       ...components,
     },
     "\nexport { NewPlan };",
@@ -250,6 +253,48 @@ test("plan dialog guards drafts and blocks closing and duplicate submissions whi
   });
 });
 
+test("plan sale editor sends prices and revision, preserves existing quotas, and reports conflicts", async (t) => {
+  environment(t);
+  const previous = globalThis.FormData;
+  const fields = { name: "Gói mới", description: "Giá mới", tier: "3", sortOrder: "2", publicSale: "on", active: "on", MONTH: "456000", YEAR: "" };
+  globalThis.FormData = class { get(name) { return fields[name] ?? null; } };
+  t.after(() => { globalThis.FormData = previous; });
+  let saved;
+  const { NewPlan } = consoleModule({
+    updatePlanSale: async (id, input) => {
+      saved = { id, input };
+      throw new Error("Dữ liệu đã thay đổi; hãy tải lại");
+    },
+  });
+  const renderer = await mount(t, NewPlan, { done: noop, close: noop, plan: {
+    id: "plan", code: "school_pro", name: "Gói cũ", revision: 7, active: true, publicSale: true, tier: 2, sortOrder: 1,
+    limits: { storage_bytes: 5 * 1024 ** 3, ai_tokens: 1000000, email_messages: 5000 }, features: { ai: true }, prices: { MONTH: 300000, YEAR: 3000000 },
+  } });
+  assert.equal(renderer.root.findAllByType("input").find((node) => node.props.name === "storage").props.disabled, true);
+  await act(async () => { await renderer.root.findByType("form").props.onSubmit(event); });
+  assert.deepEqual(saved, { id: "plan", input: { name: "Gói mới", description: "Giá mới", tier: 3, sortOrder: 2, publicSale: true, active: true, prices: { MONTH: 456000 }, expectedRevision: 7 } });
+  assert.match(text(renderer), /Dữ liệu đã thay đổi/);
+  assert.equal(renderer.root.findByType("fieldset").props.disabled, false);
+});
+
+test("public plans require a valid price before creation", async (t) => {
+  environment(t);
+  const previous = globalThis.FormData;
+  const fields = { name: "Gói mới", code: "school_pro", storage: "5", tokens: "1000", emails: "100", tier: "1", sortOrder: "0", publicSale: "on", MONTH: "", YEAR: "" };
+  globalThis.FormData = class { get(name) { return fields[name] ?? null; } };
+  t.after(() => { globalThis.FormData = previous; });
+  let writes = 0;
+  const { NewPlan } = consoleModule({ createPlan: async () => { ++writes; } });
+  const renderer = await mount(t, NewPlan, { done: noop, close: noop });
+  await act(async () => { await renderer.root.findByType("form").props.onSubmit(event); });
+  assert.equal(writes, 0);
+  assert.match(text(renderer), /ít nhất một giá/);
+  fields.MONTH = "1999";
+  await act(async () => { await renderer.root.findByType("form").props.onSubmit(event); });
+  assert.equal(writes, 0);
+  assert.match(text(renderer), /2.000/);
+});
+
 test("a failed overview request does not hide a successfully loaded school directory", async (t) => {
   environment(t);
   const { PlatformConsole } = consoleModule({
@@ -298,7 +343,7 @@ test("unsaved domain settings require confirmation before switching tabs", async
       tenants: async () => ({ data: [], total: 0 }),
       plans: async () => [],
     },
-    { "./domain-settings-panel": { DomainSettingsPanel: DraftDomain } },
+    { "./domain-settings-panel": { DomainSettingsPanel: DraftDomain }, "./billing-orders-panel": { BillingOrdersPanel: () => null } },
   );
   const renderer = await mount(t, PlatformConsole);
   await act(async () => button(renderer, "Tên miền").props.onClick());
@@ -387,7 +432,8 @@ test("conflicted tenant drafts use the shared discard confirmation before reload
     {
       "./tenant-admin-password-panel": { TenantAdminPasswordPanel: () => null },
       "@/lib/platform-api": { platformApi: api },
-      "@/lib/tenant-domains": { previewTenantDomains: () => [] },
+      "./domain-provision-panel": { DomainProvisionPanel: () => null },
+    "@/lib/tenant-domains": { previewTenantDomains: () => [] },
       "@/lib/tenant-portal": { tenantPortalUrl: () => "" },
       "@/lib/use-unsaved-changes": hooks,
       "@/lib/console-rules": rules,

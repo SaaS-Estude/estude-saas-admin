@@ -21,7 +21,7 @@ function load(file, requireModule = localRequire) {
   }).outputText;
   const compiled = { exports: {} };
   new Function("require", "module", "exports", code)(
-    requireModule,
+    (name) => name === "./portal-proxy-headers" ? load("lib/portal-proxy-headers.ts") : requireModule(name),
     compiled,
     compiled.exports,
   );
@@ -29,6 +29,26 @@ function load(file, requireModule = localRequire) {
 }
 const { forwardControl } = load("lib/control-proxy.ts");
 const { tenantPortalUrl } = load("lib/tenant-portal.ts");
+const { portalProxyHeaders } = load("lib/portal-proxy-headers.ts");
+
+test("routes to API Host and signs original Host instead of forwarding spoofed portal headers", async (t) => {
+  const previous = process.env.PORTAL_PROXY_SECRET;
+  process.env.PORTAL_PROXY_SECRET = "proxy-fixture-key-with-at-least-32-bytes";
+  t.after(() => { if(previous === undefined) delete process.env.PORTAL_PROXY_SECRET; else process.env.PORTAL_PROXY_SECRET = previous; });
+  await fixture(t,(req,res) => {
+    assert.equal(req.headers.host, new URL(process.env.CONTROL_API_URL).host);
+    assert.equal(req.headers["x-estude-portal-host"], "platform.localhost:3005");
+    assert.match(req.headers["x-estude-proxy-signature"], /^[a-f0-9]{64}$/);
+    assert.notEqual(req.headers["x-estude-proxy-signature"], "forged");
+    res.end('{"success":true}');
+  });
+  const result = await forwardControl(request(undefined,{headers:{"X-Estude-Portal-Host":"evil.test","X-Estude-Proxy-Signature":"forged"}}));
+  assert.equal(result.status,200);
+  const url = new URL("https://api.example.test/api/platform/v1/me");
+  const headers = portalProxyHeaders(request(),url,"platform.localhost:3005");
+  assert.equal(headers.host,"api.example.test");
+  assert.equal(headers["x-estude-client-ip"],"");
+});
 async function fixture(t, handler) {
   const server = http.createServer(handler);
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -85,6 +105,26 @@ test("forwards real platform host, Origin, auth, pagination and host-only cookie
   assert.equal(response.headers.get("x-total-count"), "21");
   assert.equal(response.headers.getSetCookie().length, 2);
   assert.deepEqual(await response.json(), { success: true, data: [] });
+});
+test("forwards only the client address chain for public sales rate limiting", async (t) => {
+  await fixture(t, (req, res) => {
+    assert.equal(req.headers["x-forwarded-for"], "203.0.113.5");
+    assert.equal(req.headers["x-forwarded-host"], undefined);
+    assert.equal(req.headers["x-forwarded-proto"], undefined);
+    assert.equal(req.url, "/api/platform/v1/public/billing/plans");
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end('{"success":true,"data":{"plans":[]}}');
+  });
+  const response = await forwardControl(
+    request("/api/platform/v1/public/billing/plans", {
+      headers: {
+        "X-Forwarded-For": "203.0.113.5",
+        "X-Forwarded-Host": "evil.example",
+        "X-Forwarded-Proto": "https",
+      },
+    }),
+  );
+  assert.equal(response.status, 200);
 });
 test("rejects tenant host and tenant API paths before contacting control", async (t) => {
   let calls = 0;

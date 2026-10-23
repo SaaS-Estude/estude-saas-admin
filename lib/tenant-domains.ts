@@ -11,6 +11,6 @@ export function previewTenantDomains(slug: string, baseDomain: string) {
   if (!subdomain || !base) return [];
   return tenantPortals.map((portal) => ({
     ...portal,
-    hostname: `${portal.id}.${subdomain}.${base}`,
+    hostname: `${portal.id}-${subdomain}.${base}`,
   }));
 }

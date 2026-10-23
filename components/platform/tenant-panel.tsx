@@ -7,6 +7,7 @@ import { renewalPeriod } from "@/lib/console-rules";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 import { tenantPortalUrl } from "@/lib/tenant-portal";
 import { previewTenantDomains } from "@/lib/tenant-domains";
+import { DomainProvisionPanel } from "./domain-provision-panel";
 import { TenantAdminPasswordPanel } from "./tenant-admin-password-panel";
 import {
   platformApi,
@@ -133,7 +134,9 @@ export function TenantPanel({
     !!profile &&
     !!saved &&
     (profile.slug !== saved.profile.slug ||
-      profile.baseDomain !== saved.profile.baseDomain);
+      profile.baseDomain !== saved.profile.baseDomain ||
+      (profileDirty && saved.detail.domains.some(domain =>
+        !previewTenantDomains(profile.slug, profile.baseDomain).some(next => next.hostname === domain.hostname))));
   const dirty =
     profileDirty || settingsDirty || subDirty || statusDirty || renew;
   useUnsavedChanges((dirty && !committed) || busy);
@@ -674,8 +677,7 @@ export function TenantPanel({
                 <p>
                   Cả bốn địa chỉ cũ sẽ ngừng truy cập sau khi lưu. Người dùng
                   cần mở địa chỉ mới và đăng nhập lại. Dữ liệu học tập được giữ
-                  nguyên. Cần cấu hình DNS và HTTPS cho tên miền thật; hệ thống
-                  không tự tạo DNS.
+                  nguyên. Hệ thống sẽ tự thiết lập DNS và HTTPS nếu đã bật kết nối Cloudflare và Vercel. Địa chỉ mới cần đợi thiết lập hoàn tất.
                 </p>
               )}
               {statusDirty && (
@@ -699,6 +701,7 @@ export function TenantPanel({
           )}
         </fieldset>
       </form>
+      <DomainProvisionPanel key={`domains-${saved.profile.revision}`} id={id} disabled={busy || adminBusy || adminDirty || (dirty && !committed)} onChanged={reload} />
       <TenantAdminPasswordPanel
         key={adminPanelKey}
         id={id}

@@ -151,10 +151,9 @@ export function DomainSettingsPanel({
               chỉ của trường đã tạo và yêu cầu đang chờ xử lý được giữ nguyên.
             </div>
             <p className="text-xs leading-6 text-slate-500">
-              Lưu tên miền chỉ đăng ký địa chỉ trong hệ thống. Cần cấu hình DNS,
-              domain trên nơi triển khai frontend và HTTPS để truy cập từ
-              Internet. Chứng chỉ *.estude.vn không bao phủ
-              admin.nguyen-trai.estude.vn.
+              {settings.automationEnabled
+                ? "Đã bật tự động tạo DNS Cloudflare và gắn domain Vercel cho từng trường. Trạng thái thiết lập hiển thị trong chi tiết trường."
+                : "Chưa bật tự động thiết lập tên miền. Cần cấu hình kết nối Cloudflare và Vercel trên máy chủ để tạo DNS và HTTPS tự động."}
             </p>
             <button
               type="submit"

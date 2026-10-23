@@ -1,6 +1,8 @@
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 
+import { portalProxyHeaders } from "./portal-proxy-headers";
+
 const maxBody = 1024 * 1024;
 const maxResponse = 2 * 1024 * 1024;
 const prefix = "/api/platform/v1/";
@@ -65,11 +67,17 @@ export async function forwardControl(request: Request): Promise<Response> {
     }
   }
   const body = Buffer.concat(chunks);
+  let routing: Record<string, string>;
+  try { routing = portalProxyHeaders(request, upstream, host!); }
+  catch { return fail(503, "Chưa cấu hình PORTAL_PROXY_SECRET cho proxy API"); }
   const headers: Record<string, string> = {
-    host,
+    ...routing,
     "content-length": String(body.length),
   };
+  // x-forwarded-for is passed so public sales endpoints can rate limit per
+  // client; Go honours it only from TRUSTED_PROXY_CIDRS. Host/proto stay excluded.
   for (const name of [
+    "x-forwarded-for",
     "content-type",
     "accept",
     "cookie",
@@ -96,7 +104,7 @@ export async function forwardControl(request: Request): Promise<Response> {
       {
         method: request.method,
         headers,
-        // Host identifies the portal; TLS must verify the backend destination.
+        // HTTP Host and TLS SNI both identify the API destination.
         ...(upstream.protocol === "https:" ? { servername: upstream.hostname } : {}),
       },
       (incoming) => {

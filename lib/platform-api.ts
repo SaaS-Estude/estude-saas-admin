@@ -21,7 +21,15 @@ export type Plan = {
   active: boolean;
   limits: Record<string, number>;
   features: Record<string, boolean>;
+  description: string;
+  tier: number;
+  publicSale: boolean;
+  sortOrder: number;
+  revision: number;
+  prices: Partial<Record<"MONTH" | "YEAR", number>>;
 };
+export type PlanSaleInput = Pick<Plan, "name" | "description" | "tier" | "publicSale" | "sortOrder" | "prices">;
+export type PlanInput = PlanSaleInput & Pick<Plan, "code" | "limits" | "features">;
 export type ProvisionRequest = {
   id: string;
   slug: string;
@@ -49,6 +57,7 @@ export type Settings = {
   revision: number;
 };
 export type DomainSettings = {
+  automationEnabled?: boolean;
   baseDomain: string;
   revision: number;
 };
@@ -60,7 +69,7 @@ export type Usage = {
 };
 export type TenantDetail = {
   tenant: Tenant;
-  domains: { hostname: string; portal: string }[];
+  domains: { hostname: string; portal: string; status?: string; lastError?: string; attempts?: number }[];
 };
 export type TenantProfile = {
   name: string;
@@ -89,6 +98,33 @@ export type TenantUpdate = {
     periodEnd: string;
     expectedRevision: number;
   };
+};
+export type BillingOrder = {
+  orderCode: number;
+  kind: "NEW" | "RENEW" | "UPGRADE";
+  planCode: string;
+  cycle: "MONTH" | "YEAR";
+  tenantId?: string;
+  slug?: string;
+  schoolName?: string;
+  contactName: string;
+  contactEmail: string;
+  listAmount: number;
+  creditAmount: number;
+  amount: number;
+  status: "PENDING" | "PAID" | "CANCELLED" | "EXPIRED";
+  fulfilmentStatus: "NONE" | "PENDING" | "DONE" | "FAILED";
+  fulfilmentError?: string;
+  paidAt?: string;
+  periodEnd?: string;
+  createdAt: string;
+  payments?: {
+    source: string;
+    reference: string;
+    amount: number;
+    outcome: string;
+    createdAt: string;
+  }[];
 };
 export class PlatformError extends Error {
   constructor(
@@ -264,12 +300,9 @@ export const platformApi = {
       `/tenants?${new URLSearchParams({ q, status, limit: "20", offset: String(page * 20) })}`,
     ),
   plans: () => get<Plan[]>("/plans"),
-  createPlan: (input: {
-    code: string;
-    name: string;
-    limits: Record<string, number>;
-    features: Record<string, boolean>;
-  }) => request<Plan>("/plans", "POST", input),
+  createPlan: (input: PlanInput) => request<Plan>("/plans", "POST", input),
+  updatePlanSale: (id: string, input: PlanSaleInput & { active: boolean; expectedRevision: number }) =>
+    request<Plan>(`/plans/${id}/sale`, "PUT", input),
   domainSettings: () => get<DomainSettings>("/domain-settings"),
   setDomainSettings: (settings: DomainSettings) =>
     request("/domain-settings", "PUT", {
@@ -283,6 +316,7 @@ export const platformApi = {
     adminAccount: string;
     adminPassword: string;
   }) => request<ProvisionRequest>("/tenants", "POST", input),
+  syncDomains: (id: string) => request(`/tenants/${id}/domains/sync`, "POST"),
   tenant: (id: string) => get<TenantDetail>(`/tenants/${id}`),
   tenantAdminAccounts: (id: string) =>
     get<TenantAdminAccount[]>(`/tenants/${id}/admin-accounts`),
@@ -303,4 +337,11 @@ export const platformApi = {
   subscription: (id: string) =>
     get<Subscription>(`/tenants/${id}/subscription`),
   usage: (id: string) => get<Usage[]>(`/tenants/${id}/usage?current=true`),
+  billingOrders: (status: string, page: number) =>
+    get<BillingOrder[]>(
+      `/billing/orders?${new URLSearchParams({ status, limit: "20", offset: String(page * 20) })}`,
+    ),
+  billingOrder: (code: number) => get<BillingOrder>(`/billing/orders/${code}`),
+  reconcileBillingOrder: (code: number) =>
+    request<BillingOrder>(`/billing/orders/${code}/reconcile`, "POST"),
 };
