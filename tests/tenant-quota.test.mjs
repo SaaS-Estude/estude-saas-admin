@@ -59,22 +59,22 @@ async function mount(t,options={}) {
   return {renderer,writes,plans,edit,submit,text};
 }
 
-test('school quota draft previews selected plan, includes current usage, and saves atomically in bytes',async t=>{
+test('school quota draft preserves the assigned plan, includes current usage, and saves atomically in bytes',async t=>{
   const f=await mount(t);
   assert.match(f.text(),/100\.100/);
   assert.match(f.text(),/20\.457/); // monthly usage need not start on subscription's first day
   await f.edit('Bổ sung AI tokens','200');
   await f.edit('Bổ sung Email','10');
   await f.edit('Bổ sung Dung lượng (MiB)','1.5');
-  const planSelect=f.renderer.root.findAllByType('select').find(n=>n.props.value==='starter');
-  await act(async()=>planSelect.props.onChange({target:{value:'pro'}}));
-  assert.match(f.text(),/200\.200/);
+  assert.equal(f.renderer.root.findAllByType('select').some(n=>n.props.value==='starter'),false);
+  assert.equal(f.renderer.root.findByProps({'aria-label':'Gói dịch vụ hiện tại'}).props.readOnly,true);
+  assert.match(f.text(),/100\.200/);
   // An unsaved allowance or plan change must not inflate the live usage meter.
   const meter=f.renderer.root.findAllByProps({role:'progressbar'})[0];
   assert.match(meter.props['aria-valuetext'],/100\.100 tokens/);
   assert.equal(f.writes.length,0);
   await f.submit();
-  assert.deepEqual(f.writes,[{id:'school-id',input:{quota:{additional:{ai_tokens:200,email_messages:10,storage_bytes:1572864},expectedRevision:4},subscription:{planId:'pro',status:'ACTIVE',expectedRevision:7}}}]);
+  assert.deepEqual(f.writes,[{id:'school-id',input:{quota:{additional:{ai_tokens:200,email_messages:10,storage_bytes:1572864},expectedRevision:4}}}]);
   assert.equal(f.plans[0].limits.ai_tokens,100000);
   assert.equal(f.renderer.root.findByProps({'aria-label':'Bổ sung AI tokens'}).props.value,'200');
   await f.submit();assert.equal(f.writes.length,1);

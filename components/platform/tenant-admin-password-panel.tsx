@@ -23,11 +23,13 @@ import {
 
 export function TenantAdminPasswordPanel({
   id,
+  account,
   disabled = false,
   onDirtyChange,
   onBusyChange,
 }: {
   id: string;
+  account?: TenantAdminAccount;
   disabled?: boolean;
   onDirtyChange: (dirty: boolean) => void;
   onBusyChange: (busy: boolean) => void;
@@ -51,7 +53,7 @@ export function TenantAdminPasswordPanel({
     setLoading(true);
     setLoadError("");
     try {
-      const rows = await platformApi.tenantAdminAccounts(id);
+      const rows = account ? [account] : await platformApi.tenantAdminAccounts(id);
       setAccounts(rows);
       setSelected(rows[0]?.id ?? "");
     } catch (cause) {
@@ -59,7 +61,7 @@ export function TenantAdminPasswordPanel({
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, account]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -120,7 +122,7 @@ export function TenantAdminPasswordPanel({
           Tài khoản quản trị trường
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-500">
-          Quản trị viên SaaS có thể đặt lại mật khẩu khi nhà trường cần hỗ trợ.
+          Mỗi trường được cấp tối đa 3 tài khoản quản trị. Quản trị viên SaaS có thể đặt lại mật khẩu khi nhà trường cần hỗ trợ.
           Tài khoản phải đăng nhập lại trên tất cả thiết bị sau khi đặt lại.
         </p>
       </div>
@@ -150,7 +152,9 @@ export function TenantAdminPasswordPanel({
           {success && <SuccessNotice>{success}</SuccessNotice>}
           <fieldset disabled={disabled || busy} className="space-y-4">
             <Field label="Tài khoản quản trị">
-              <select
+              {account ? (
+                <input readOnly value={`${account.accountName} — ${account.fullName}`} className={`${inputClass} bg-slate-50`} />
+              ) : <select
                 value={selected}
                 className={inputClass}
                 onChange={(event) => {
@@ -167,7 +171,7 @@ export function TenantAdminPasswordPanel({
                     {account.status === "ACTIVE" ? "" : " (Đang khóa)"}
                   </option>
                 ))}
-              </select>
+              </select>}
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <PasswordField

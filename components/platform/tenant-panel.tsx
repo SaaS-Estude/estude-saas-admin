@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
-import { ExternalLink, LoaderCircle, Save } from "lucide-react";
+import { ExternalLink, LoaderCircle, Save, Upload } from "lucide-react";
 import { renewalPeriod } from "@/lib/console-rules";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 import { tenantPortalUrl } from "@/lib/tenant-portal";
@@ -56,6 +56,7 @@ export function TenantPanel({
   updated: () => void;
 }) {
   const formId = useId();
+  const logoInput = useRef<HTMLInputElement>(null);
   const [saved, setSaved] = useState<Snapshot | null>(null);
   const [profile, setProfile] = useState<TenantProfile | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -134,8 +135,7 @@ export function TenantPanel({
   const subDirty =
     !!sub &&
     !!saved &&
-    (sub.planId !== saved.subscription.planId ||
-      sub.status !== saved.subscription.status);
+    sub.status !== saved.subscription.status;
   const statusDirty = !!saved && status !== saved.detail.tenant.status;
   const quotaDirty = !!saved && quotaResources.some(resource => quota[resource] !== quotaDraft(saved.quota.additional)[resource]);
   const addressDirty =
@@ -213,7 +213,7 @@ export function TenantPanel({
       };
     if (subDirty)
       changes.subscription = {
-        planId: sub.planId,
+        planId: saved.subscription.planId,
         status: sub.status,
         expectedRevision: saved.subscription.revision,
       };
@@ -499,7 +499,26 @@ export function TenantPanel({
                   <div className="flex flex-wrap items-center gap-4">
                     {settings.logoDataUrl ? <Image unoptimized src={settings.logoDataUrl} alt="Logo trường" width={80} height={80} className="size-20 rounded-xl border border-slate-200 bg-white p-1 object-contain" /> : <div className="grid size-20 place-items-center rounded-xl border border-dashed border-slate-300 text-xs text-slate-500">Chưa có logo</div>}
                     <div className="min-w-0 flex-1 space-y-2">
-                      <input type="file" aria-label="Chọn logo trường" accept="image/png,image/jpeg,image/webp" className="block w-full text-sm" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; void selectLogo(file); }} />
+                      <input
+                        ref={logoInput}
+                        type="file"
+                        aria-label="Chọn logo trường"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = "";
+                          void selectLogo(file);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className={secondaryClass}
+                        onClick={() => logoInput.current?.click()}
+                      >
+                        <Upload className="size-4" aria-hidden="true" />
+                        {settings.logoDataUrl ? "Thay logo" : "Tải logo lên"}
+                      </button>
                       {settings.logoDataUrl ? <button type="button" className="text-sm font-semibold text-rose-700" onClick={() => setSettings({ ...settings, logoDataUrl: "" })}>Gỡ logo</button> : null}
                     </div>
                   </div>
@@ -523,27 +542,15 @@ export function TenantPanel({
                 <h3 className="font-bold">Gói đăng ký</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Gói dịch vụ">
-                    <select
-                      value={sub.planId}
-                      onChange={(e) =>
-                        setSub({ ...sub, planId: e.target.value })
-                      }
-                      className={inputClass}
-                    >
-                      {!plans.some((p) => p.id === sub.planId) && (
-                        <option value={sub.planId} disabled>
-                          Gói hiện tại chưa tải được
-                        </option>
-                      )}
-                      {plans
-                        .filter((p) => p.active || p.id === sub.planId)
-                        .map((p) => (
-                          <option key={p.id} value={p.id} disabled={!p.active}>
-                            {p.name}
-                            {p.active ? "" : " (Ngừng cung cấp)"}
-                          </option>
-                        ))}
-                    </select>
+                    <input
+                      aria-label="Gói dịch vụ hiện tại"
+                      value={plans.find((item) => item.id === saved.subscription.planId)?.name || "Gói hiện tại chưa tải được"}
+                      readOnly
+                      className={`${inputClass} bg-slate-50 text-slate-600`}
+                    />
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      Không thể đổi hoặc nâng cấp gói trực tiếp tại đây. Gói chỉ thay đổi qua quy trình đăng ký và thanh toán.
+                    </p>
                   </Field>
                   <Field label="Trạng thái đăng ký">
                     <select

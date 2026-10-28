@@ -193,6 +193,7 @@ function consoleModule(api, components = {}) {
       },
       "./tenant-panel": { TenantPanel: () => null },
       "./domain-settings-panel": { DomainSettingsPanel: () => null },
+      "./admin-accounts-panel": { AdminAccountsPanel: () => null },
       "./billing-orders-panel": { BillingOrdersPanel: () => null },
       ...components,
     },
@@ -344,7 +345,8 @@ test("unsaved domain settings require confirmation before switching tabs", async
       tenants: async () => ({ data: [], total: 0 }),
       plans: async () => [],
     },
-    { "./domain-settings-panel": { DomainSettingsPanel: DraftDomain }, "./billing-orders-panel": { BillingOrdersPanel: () => null } },
+    { "./domain-settings-panel": { DomainSettingsPanel: DraftDomain }, "./admin-accounts-panel": { AdminAccountsPanel: () => null },
+      "./billing-orders-panel": { BillingOrdersPanel: () => null } },
   );
   const renderer = await mount(t, PlatformConsole);
   await act(async () => button(renderer, "Tên miền").props.onClick());

@@ -90,6 +90,18 @@ export type TenantAdminAccount = {
   fullName: string;
   status: string;
 };
+export type AdminDirectoryAccount = TenantAdminAccount & {
+ tenantId: string;
+ schoolName: string;
+ slug: string;
+};
+export type AdminDirectoryPage = { items: AdminDirectoryAccount[]; total: number };
+export type CreateTenantAdminInput = {
+ fullName: string;
+ accountName: string;
+ newPassword: string;
+ confirmNewPassword: string;
+};
 export type TenantUpdate = {
   quota?: Pick<TenantQuota,"additional"> & { expectedRevision: number };
   profile?: Omit<TenantProfile, "revision"> & { expectedRevision: number };
@@ -338,6 +350,12 @@ export const platformApi = {
       newPassword,
       confirmNewPassword,
     }),
+  adminDirectory: (q: string, tenantId: string, status: string, page: number) =>
+    get<AdminDirectoryPage>(`/admin-accounts?${new URLSearchParams({ q, tenantId, status, limit: "20", offset: String(page * 20) })}`),
+  createTenantAdmin: (id: string, input: CreateTenantAdminInput) =>
+    request<TenantAdminAccount>(`/tenants/${id}/admin-accounts`, "POST", input),
+  setTenantAdminStatus: (id: string, userId: string, status: "ACTIVE" | "LOCKED", expectedStatus: string) =>
+    request(`/tenants/${id}/admin-accounts/${userId}/status`, "PUT", { status, expectedStatus }),
   updateTenant: (id: string, changes: TenantUpdate) =>
     request(`/tenants/${id}`, "PUT", changes),
   tenantProfile: (id: string) => get<TenantProfile>(`/tenants/${id}/profile`),

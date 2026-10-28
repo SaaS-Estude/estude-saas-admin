@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   Building2,
+  UsersRound,
   Layers3,
   ListChecks,
   LogOut,
@@ -41,6 +42,7 @@ import { tenantPage } from "@/lib/console-rules";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 import { TenantPanel } from "./tenant-panel";
 import { DomainSettingsPanel } from "./domain-settings-panel";
+import { AdminAccountsPanel } from "./admin-accounts-panel";
 import { BillingOrdersPanel } from "./billing-orders-panel";
 import { previewTenantDomains } from "@/lib/tenant-domains";
 import {
@@ -591,6 +593,7 @@ function NewPlan({ done, close, plan }: { done: () => void; close: () => void; p
 const tabs = [
   { id: "overview", name: "Tổng quan", icon: LayoutDashboard },
   { id: "tenants", name: "Trường học", icon: Building2 },
+  { id: "admins", name: "Quản trị trường", icon: UsersRound },
   { id: "domains", name: "Tên miền", icon: Globe },
   { id: "plans", name: "Gói dịch vụ", icon: Layers3 },
   { id: "orders", name: "Đơn thanh toán", icon: ListChecks },
@@ -882,6 +885,8 @@ export function PlatformConsole() {
                   ? "Tổng quan trường học và hoạt động trên nền tảng của bạn."
                   : tab === "tenants"
                     ? "Quản lý không gian học tập và trạng thái của từng trường."
+                    : tab === "admins"
+                      ? "Quản lý tài khoản quản trị của các trường. Mỗi trường tối đa 3 tài khoản."
                     : tab === "domains"
                       ? "Thiết lập địa chỉ truy cập mặc định cho trường mới."
                       : "Quản lý gói dịch vụ, tính năng và hạn mức sử dụng."}
@@ -1354,6 +1359,7 @@ export function PlatformConsole() {
               </p>
             </section>
           )}
+          {tab === "admins" && <AdminAccountsPanel onDirtyChange={setDomainDirty} onBusyChange={setDomainBusy} />}
           {tab === "orders" && <BillingOrdersPanel />}
         </main>
       </div>

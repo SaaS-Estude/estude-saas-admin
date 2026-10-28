@@ -142,11 +142,12 @@ export function Notice({ children }: { children: ReactNode }) {
     </div>
   );
 }
-export function Badge({ status }: { status: string }) {
-  const label: Record<string, string> = {
+export function Badge({ status, label }: { status: string; label?: string }) {
+  const labels: Record<string, string> = {
     ACTIVE: "Hoạt động",
     INACTIVE: "Ngừng cung cấp",
     SUSPENDED: "Tạm khóa",
+    LOCKED: "Đã khóa",
     PROVISIONING: "Đang tạo",
     PENDING: "Đang chờ",
     SUCCEEDED: "Hoàn tất",
@@ -159,7 +160,7 @@ export function Badge({ status }: { status: string }) {
       ? "bg-slate-100 text-slate-600"
       : ["ACTIVE", "SUCCEEDED"].includes(status)
         ? "bg-emerald-50 text-emerald-700"
-        : ["FAILED", "SUSPENDED", "EXPIRED"].includes(status)
+        : ["FAILED", "SUSPENDED", "EXPIRED", "LOCKED"].includes(status)
           ? "bg-rose-50 text-rose-700"
           : "bg-amber-50 text-amber-700";
   return (
@@ -170,7 +171,7 @@ export function Badge({ status }: { status: string }) {
         className="h-1.5 w-1.5 rounded-full bg-current"
         aria-hidden="true"
       />
-      {label[status] ?? status}
+      {label ?? labels[status] ?? status}
     </span>
   );
 }
