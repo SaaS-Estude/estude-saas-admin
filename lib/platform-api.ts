@@ -58,6 +58,7 @@ export type Settings = {
 };
 export type DomainSettings = {
   automationEnabled?: boolean;
+  automationBaseDomain?: string;
   baseDomain: string;
   revision: number;
 };
