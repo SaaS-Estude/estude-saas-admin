@@ -433,6 +433,7 @@ test("conflicted tenant drafts use the shared discard confirmation before reload
     "components/platform/tenant-panel.tsx",
     {
       "./tenant-admin-password-panel": { TenantAdminPasswordPanel: () => null },
+      "./tenant-usage-panel": { TenantUsagePanel: () => null },
       "@/lib/platform-api": { platformApi: api },
       "./domain-provision-panel": { DomainProvisionPanel: () => null },
     "@/lib/tenant-domains": { previewTenantDomains: () => [] },

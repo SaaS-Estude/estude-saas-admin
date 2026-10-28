@@ -42,6 +42,7 @@ async function mount(t,options={}) {
     '@/lib/platform-api':{platformApi:api},
     './tenant-admin-password-panel':{TenantAdminPasswordPanel:()=>null},
     './domain-provision-panel':{DomainProvisionPanel:()=>null},
+    './tenant-usage-panel':loadComponent('components/platform/tenant-usage-panel.tsx',{'@/lib/tenant-quota':quotaHelpers,'./console-ui':ui}),
     '@/lib/tenant-domains':{previewTenantDomains:()=>[]},
     '@/lib/tenant-portal':{tenantPortalUrl:()=>''},
     '@/lib/use-unsaved-changes':loadComponent('lib/use-unsaved-changes.ts'),
@@ -68,6 +69,9 @@ test('school quota draft previews selected plan, includes current usage, and sav
   const planSelect=f.renderer.root.findAllByType('select').find(n=>n.props.value==='starter');
   await act(async()=>planSelect.props.onChange({target:{value:'pro'}}));
   assert.match(f.text(),/200\.200/);
+  // An unsaved allowance or plan change must not inflate the live usage meter.
+  const meter=f.renderer.root.findAllByProps({role:'progressbar'})[0];
+  assert.match(meter.props['aria-valuetext'],/100\.100 tokens/);
   assert.equal(f.writes.length,0);
   await f.submit();
   assert.deepEqual(f.writes,[{id:'school-id',input:{quota:{additional:{ai_tokens:200,email_messages:10,storage_bytes:1572864},expectedRevision:4},subscription:{planId:'pro',status:'ACTIVE',expectedRevision:7}}}]);

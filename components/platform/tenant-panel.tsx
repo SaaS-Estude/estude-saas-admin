@@ -7,7 +7,8 @@ import { renewalPeriod } from "@/lib/console-rules";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 import { tenantPortalUrl } from "@/lib/tenant-portal";
 import { previewTenantDomains } from "@/lib/tenant-domains";
-import { quotaDraft, quotaResources, quotaLabels, parseQuotaDraft, parseQuotaValue, quotaMaximum, mib, type QuotaDraft, type QuotaResource } from "@/lib/tenant-quota";
+import { quotaDraft, quotaResources, parseQuotaDraft, type QuotaDraft } from "@/lib/tenant-quota";
+import { TenantUsagePanel } from "./tenant-usage-panel";
 import { DomainProvisionPanel } from "./domain-provision-panel";
 import { TenantAdminPasswordPanel } from "./tenant-admin-password-panel";
 import {
@@ -28,7 +29,6 @@ import {
   Modal,
   Notice,
   SuccessNotice,
-  amount,
   dateOnlyText,
   errorText,
   inputClass,
@@ -283,16 +283,6 @@ export function TenantPanel({
     );
   const { detail, usage } = saved;
   const plan = plans.find((p) => p.id === sub.planId);
-  // The API already selects the current monthly bucket, which can differ from
-  // the subscription's start date on annual subscriptions.
-  const currentUsage = usage;
-  const resources = [
-    ...new Set([
-      ...Object.keys(plan?.limits ?? {}),
-      ...quotaResources,
-      ...currentUsage.map((row) => row.resource),
-    ]),
-  ];
   const expired =
     new Date(saved.subscription.periodEnd).getTime() <= Date.now();
   return [
@@ -624,82 +614,10 @@ export function TenantPanel({
                   </div>
                 )}
               </section>
-              <section className="space-y-3 border-t border-slate-100 pt-5">
-                <h3 className="font-bold">Mức sử dụng</h3>
-                <p className="text-xs leading-5 text-slate-500">
-                  Dung lượng được tính tích lũy; email và AI tính theo kỳ. Hạn
-                  mức bằng hạn mức gói cộng phần bổ sung riêng cho trường.
-                  Phần bổ sung được duy trì ở các kỳ tiếp theo; nhập 0 để dùng
-                  hạn mức của gói. “Đang giữ” là phần đã đặt trước cho tác vụ chưa hoàn tất.
-                </p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="text-slate-500">
-                      <tr>
-                        <th className="py-2">Tài nguyên</th>
-                        <th>Đã dùng</th>
-                        <th>Đang giữ</th>
-                        <th>Bổ sung</th>
-                        <th>Hạn mức sau lưu</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {resources.map((resource) => {
-                        const rows = currentUsage.filter(
-                            (row) => row.resource === resource,
-                          ),
-                          used = rows.reduce((n, r) => n + r.used, 0),
-                          reserved = rows.reduce((n, r) => n + r.reserved, 0);
-                        const format = (n: number) =>
-                          resource === "storage_bytes"
-                            ? `${amount(Math.round((n / 1024 ** 2) * 100) / 100)} MiB`
-                            : amount(n);
-                        const editable = quotaResources.includes(resource as QuotaResource);
-                        let extra: number | null = 0;
-                        if (editable) {
-                          try { extra = parseQuotaValue(resource as QuotaResource,quota[resource as QuotaResource]); }
-                          catch { extra = null; }
-                        }
-                        return (
-                          <tr
-                            key={resource}
-                            className="border-t border-slate-100"
-                          >
-                            <td className="py-3">
-                              {resource === "storage_bytes"
-                                ? "Dung lượng"
-                                : resource === "ai_tokens"
-                                  ? "AI tokens"
-                                  : resource === "email_messages"
-                                    ? "Email"
-                                    : resource}
-                            </td>
-                            <td>{format(used)}</td>
-                            <td>{format(reserved)}</td>
-                            <td>
-                              {editable && plan?.limits[resource] !== undefined ? <div className="flex items-center gap-1 pr-2">
-                                <input type="number" aria-label={`Bổ sung ${quotaLabels[resource as QuotaResource]}${resource === "storage_bytes" ? " (MiB)" : ""}`}
-                                  required min={0} max={quotaMaximum/(resource === "storage_bytes" ? mib : 1)} step={resource === "storage_bytes" ? "any" : 1}
-                                  value={quota[resource as QuotaResource]} className={`${inputClass} w-28 min-w-0`}
-                                  onChange={event => setQuota(current => ({...current,[resource]:event.target.value}))} />
-                                {resource === "storage_bytes" && <span>MiB</span>}
-                              </div> : "—"}
-                            </td>
-                            <td>
-                              {plan?.limits[resource] !== undefined && extra !== null ? <>
-                                <span className="font-semibold">{format(plan.limits[resource]+extra)}</span>
-                                <p className="mt-1 text-slate-500">Gói: {format(plan.limits[resource])}</p>
-                              </> : "—"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
             </div>
           </div>
+          <TenantUsagePanel usage={usage} currentLimits={saved.quota.limits} plan={plan} draft={quota}
+            onChange={(resource, value) => setQuota(current => ({ ...current, [resource]: value }))} />
           {(addressDirty || statusDirty) && (
             <section className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
               <h3 className="font-semibold">Xác nhận thay đổi quan trọng</h3>

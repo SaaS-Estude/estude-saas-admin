@@ -18,6 +18,7 @@ test('logo selection stays in the draft and one confirmation saves branding; rem
  const {TenantPanel}=loadComponent('components/platform/tenant-panel.tsx',{
   'next/image':{default:p=>React.createElement('img',p)},
   '@/lib/platform-api':{platformApi:api},'./tenant-admin-password-panel':{TenantAdminPasswordPanel:()=>null},
+  './tenant-usage-panel':{TenantUsagePanel:()=>null},
   './domain-provision-panel':{DomainProvisionPanel:()=>null},'@/lib/tenant-domains':{previewTenantDomains:()=>[]},'@/lib/tenant-portal':{tenantPortalUrl:()=>''},'@/lib/use-unsaved-changes':hooks,'@/lib/console-rules':rules,'@/lib/tenant-quota':loadComponent('lib/tenant-quota.ts'),
   './console-ui':{...ui,Modal:({children,footer,close})=>React.createElement('test-modal',null,children,typeof footer==='function'?footer(close):footer),DiscardChangesDialog:()=>null},
  });
