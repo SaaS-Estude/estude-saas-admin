@@ -14,11 +14,11 @@ test('logo selection stays in the draft and one confirmation saves branding; rem
  globalThis.FileReader=class {readAsDataURL(){this.result=logo;this.onload()}};
  const writes=[];
  let settings={displayName:'Trường thử nghiệm',primaryColor:'#2563eb',timezone:'Asia/Ho_Chi_Minh',revision:3};
- const api={tenant:async()=>({tenant:{name:'Trường thử nghiệm',slug:'school',status:'ACTIVE'},domains:[]}),tenantProfile:async()=>({name:'Trường thử nghiệm',slug:'school',baseDomain:'example.test',revision:1}),settings:async()=>({...settings}),subscription:async()=>({planId:'plan',status:'ACTIVE',periodStart:'2026-01-01',periodEnd:'2030-01-01T00:00:00Z',revision:1}),usage:async()=>[],updateTenant:async(id,input)=>{writes.push({id,input});settings={...settings,...input.settings,revision:settings.revision+1}}};
+ const api={tenant:async()=>({tenant:{name:'Trường thử nghiệm',slug:'school',status:'ACTIVE'},domains:[]}),tenantProfile:async()=>({name:'Trường thử nghiệm',slug:'school',baseDomain:'example.test',revision:1}),settings:async()=>({...settings}),subscription:async()=>({planId:'plan',status:'ACTIVE',periodStart:'2026-01-01',periodEnd:'2030-01-01T00:00:00Z',revision:1}),usage:async()=>[],quota:async()=>({additional:{ai_tokens:0,email_messages:0,storage_bytes:0},limits:{},revision:0}),updateTenant:async(id,input)=>{writes.push({id,input});settings={...settings,...input.settings,revision:settings.revision+1}}};
  const {TenantPanel}=loadComponent('components/platform/tenant-panel.tsx',{
   'next/image':{default:p=>React.createElement('img',p)},
   '@/lib/platform-api':{platformApi:api},'./tenant-admin-password-panel':{TenantAdminPasswordPanel:()=>null},
-  './domain-provision-panel':{DomainProvisionPanel:()=>null},'@/lib/tenant-domains':{previewTenantDomains:()=>[]},'@/lib/tenant-portal':{tenantPortalUrl:()=>''},'@/lib/use-unsaved-changes':hooks,'@/lib/console-rules':rules,
+  './domain-provision-panel':{DomainProvisionPanel:()=>null},'@/lib/tenant-domains':{previewTenantDomains:()=>[]},'@/lib/tenant-portal':{tenantPortalUrl:()=>''},'@/lib/use-unsaved-changes':hooks,'@/lib/console-rules':rules,'@/lib/tenant-quota':loadComponent('lib/tenant-quota.ts'),
   './console-ui':{...ui,Modal:({children,footer,close})=>React.createElement('test-modal',null,children,typeof footer==='function'?footer(close):footer),DiscardChangesDialog:()=>null},
  });
  let renderer;await act(async()=>{renderer=create(React.createElement(TenantPanel,{id:'school-id',plans:[{id:'plan',active:true,limits:{}}],close(){},updated(){}}));await new Promise(setImmediate);});

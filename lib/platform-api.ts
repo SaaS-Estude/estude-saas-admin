@@ -68,6 +68,11 @@ export type Usage = {
   used: number;
   reserved: number;
 };
+export type TenantQuota = {
+  additional: Record<string,number>;
+  limits: Record<string,number>;
+  revision: number;
+};
 export type TenantDetail = {
   tenant: Tenant;
   domains: { hostname: string; portal: string; status?: string; lastError?: string; attempts?: number }[];
@@ -86,6 +91,7 @@ export type TenantAdminAccount = {
   status: string;
 };
 export type TenantUpdate = {
+  quota?: Pick<TenantQuota,"additional"> & { expectedRevision: number };
   profile?: Omit<TenantProfile, "revision"> & { expectedRevision: number };
   settings?: Pick<Settings, "displayName" | "primaryColor"> & {
     logoDataUrl?: string;
@@ -335,6 +341,7 @@ export const platformApi = {
   updateTenant: (id: string, changes: TenantUpdate) =>
     request(`/tenants/${id}`, "PUT", changes),
   tenantProfile: (id: string) => get<TenantProfile>(`/tenants/${id}/profile`),
+  quota: (id: string) => get<TenantQuota>(`/tenants/${id}/quota`),
   settings: (id: string) => get<Settings>(`/tenants/${id}/settings`),
   subscription: (id: string) =>
     get<Subscription>(`/tenants/${id}/subscription`),

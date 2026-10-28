@@ -183,6 +183,7 @@ function consoleModule(api, components = {}) {
       "./domain-provision-panel": { DomainProvisionPanel: () => null },
     "@/lib/tenant-domains": { previewTenantDomains: () => [] },
       "@/lib/console-rules": rules,
+      "@/lib/tenant-quota": loadComponent("lib/tenant-quota.ts"),
       "@/lib/use-unsaved-changes": hooks,
       "./console-ui": {
         ...ui,
@@ -423,6 +424,7 @@ test("conflicted tenant drafts use the shared discard confirmation before reload
       revision: 1,
     }),
     usage: async () => [],
+    quota: async () => ({additional:{ai_tokens:0,email_messages:0,storage_bytes:0},limits:{},revision:0}),
     updateTenant: async () => {
       throw Object.assign(new Error("conflict"), { status: 409 });
     },
@@ -437,6 +439,7 @@ test("conflicted tenant drafts use the shared discard confirmation before reload
       "@/lib/tenant-portal": { tenantPortalUrl: () => "" },
       "@/lib/use-unsaved-changes": hooks,
       "@/lib/console-rules": rules,
+      "@/lib/tenant-quota": loadComponent("lib/tenant-quota.ts"),
       "./console-ui": {
         ...ui,
         Modal,

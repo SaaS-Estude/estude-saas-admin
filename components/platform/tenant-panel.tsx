@@ -7,6 +7,7 @@ import { renewalPeriod } from "@/lib/console-rules";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 import { tenantPortalUrl } from "@/lib/tenant-portal";
 import { previewTenantDomains } from "@/lib/tenant-domains";
+import { quotaDraft, quotaResources, quotaLabels, parseQuotaDraft, parseQuotaValue, quotaMaximum, mib, type QuotaDraft, type QuotaResource } from "@/lib/tenant-quota";
 import { DomainProvisionPanel } from "./domain-provision-panel";
 import { TenantAdminPasswordPanel } from "./tenant-admin-password-panel";
 import {
@@ -17,6 +18,7 @@ import {
   type TenantDetail,
   type TenantProfile,
   type TenantUpdate,
+  type TenantQuota,
   type Usage,
 } from "@/lib/platform-api";
 import {
@@ -40,6 +42,7 @@ type Snapshot = {
   settings: Settings;
   subscription: Subscription;
   usage: Usage[];
+  quota: TenantQuota;
 };
 export function TenantPanel({
   id,
@@ -57,6 +60,7 @@ export function TenantPanel({
   const [profile, setProfile] = useState<TenantProfile | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [sub, setSub] = useState<Subscription | null>(null);
+  const [quota,setQuota] = useState<QuotaDraft>(quotaDraft({}));
   const [status, setStatus] = useState("");
   const [renew, setRenew] = useState(false),
     [periodStart, setPeriodStart] = useState(""),
@@ -73,13 +77,14 @@ export function TenantPanel({
   const [adminBusy, setAdminBusy] = useState(false);
   const [adminPanelKey, setAdminPanelKey] = useState(0);
   const load = useCallback(async () => {
-    const [detail, schoolProfile, branding, subscription, usage] =
+    const [detail, schoolProfile, branding, subscription, usage, allowance] =
       await Promise.all([
         platformApi.tenant(id),
         platformApi.tenantProfile(id),
         platformApi.settings(id),
         platformApi.subscription(id),
         platformApi.usage(id),
+        platformApi.quota(id),
       ]);
     setSaved({
       detail,
@@ -87,10 +92,12 @@ export function TenantPanel({
       settings: branding,
       subscription,
       usage,
+      quota: allowance,
     });
     setProfile(schoolProfile);
     setSettings(branding);
     setSub(subscription);
+    setQuota(quotaDraft(allowance.additional));
     setStatus(detail.tenant.status);
     setRenew(false);
     setPeriodStart("");
@@ -130,6 +137,7 @@ export function TenantPanel({
     (sub.planId !== saved.subscription.planId ||
       sub.status !== saved.subscription.status);
   const statusDirty = !!saved && status !== saved.detail.tenant.status;
+  const quotaDirty = !!saved && quotaResources.some(resource => quota[resource] !== quotaDraft(saved.quota.additional)[resource]);
   const addressDirty =
     !!profile &&
     !!saved &&
@@ -138,7 +146,7 @@ export function TenantPanel({
       (profileDirty && saved.detail.domains.some(domain =>
         !previewTenantDomains(profile.slug, profile.baseDomain).some(next => next.hostname === domain.hostname))));
   const dirty =
-    profileDirty || settingsDirty || subDirty || statusDirty || renew;
+    profileDirty || settingsDirty || subDirty || statusDirty || renew || quotaDirty;
   useUnsavedChanges((dirty && !committed) || busy);
   async function selectLogo(file?: File) {
     if (!file || busy || !settings) return;
@@ -185,6 +193,10 @@ export function TenantPanel({
       return;
     if ((addressDirty || statusDirty) && !confirmed) return;
     const changes: TenantUpdate = {};
+    if (quotaDirty) {
+      try { changes.quota = {additional:parseQuotaDraft(quota),expectedRevision:saved.quota.revision}; }
+      catch(cause) { setError(errorText(cause)); return; }
+    }
     if (profileDirty)
       changes.profile = {
         name: profile.name,
@@ -270,16 +282,14 @@ export function TenantPanel({
       </Modal>
     );
   const { detail, usage } = saved;
-  const plan = plans.find((p) => p.id === saved.subscription.planId);
-  const currentUsage = usage.filter(
-    (row) =>
-      row.resource === "storage_bytes" ||
-      row.periodStart.slice(0, 10) ===
-        saved.subscription.periodStart.slice(0, 10),
-  );
+  const plan = plans.find((p) => p.id === sub.planId);
+  // The API already selects the current monthly bucket, which can differ from
+  // the subscription's start date on annual subscriptions.
+  const currentUsage = usage;
   const resources = [
     ...new Set([
       ...Object.keys(plan?.limits ?? {}),
+      ...quotaResources,
       ...currentUsage.map((row) => row.resource),
     ]),
   ];
@@ -618,8 +628,9 @@ export function TenantPanel({
                 <h3 className="font-bold">Mức sử dụng</h3>
                 <p className="text-xs leading-5 text-slate-500">
                   Dung lượng được tính tích lũy; email và AI tính theo kỳ. Hạn
-                  mức dưới đây thuộc gói đã lưu. “Đang giữ” là phần đã đặt trước
-                  cho tác vụ chưa hoàn tất.
+                  mức bằng hạn mức gói cộng phần bổ sung riêng cho trường.
+                  Phần bổ sung được duy trì ở các kỳ tiếp theo; nhập 0 để dùng
+                  hạn mức của gói. “Đang giữ” là phần đã đặt trước cho tác vụ chưa hoàn tất.
                 </p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
@@ -628,7 +639,8 @@ export function TenantPanel({
                         <th className="py-2">Tài nguyên</th>
                         <th>Đã dùng</th>
                         <th>Đang giữ</th>
-                        <th>Hạn mức</th>
+                        <th>Bổ sung</th>
+                        <th>Hạn mức sau lưu</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -642,6 +654,12 @@ export function TenantPanel({
                           resource === "storage_bytes"
                             ? `${amount(Math.round((n / 1024 ** 2) * 100) / 100)} MiB`
                             : amount(n);
+                        const editable = quotaResources.includes(resource as QuotaResource);
+                        let extra: number | null = 0;
+                        if (editable) {
+                          try { extra = parseQuotaValue(resource as QuotaResource,quota[resource as QuotaResource]); }
+                          catch { extra = null; }
+                        }
                         return (
                           <tr
                             key={resource}
@@ -659,7 +677,19 @@ export function TenantPanel({
                             <td>{format(used)}</td>
                             <td>{format(reserved)}</td>
                             <td>
-                              {plan ? format(plan.limits[resource] ?? 0) : "—"}
+                              {editable && plan?.limits[resource] !== undefined ? <div className="flex items-center gap-1 pr-2">
+                                <input type="number" aria-label={`Bổ sung ${quotaLabels[resource as QuotaResource]}${resource === "storage_bytes" ? " (MiB)" : ""}`}
+                                  required min={0} max={quotaMaximum/(resource === "storage_bytes" ? mib : 1)} step={resource === "storage_bytes" ? "any" : 1}
+                                  value={quota[resource as QuotaResource]} className={`${inputClass} w-28 min-w-0`}
+                                  onChange={event => setQuota(current => ({...current,[resource]:event.target.value}))} />
+                                {resource === "storage_bytes" && <span>MiB</span>}
+                              </div> : "—"}
+                            </td>
+                            <td>
+                              {plan?.limits[resource] !== undefined && extra !== null ? <>
+                                <span className="font-semibold">{format(plan.limits[resource]+extra)}</span>
+                                <p className="mt-1 text-slate-500">Gói: {format(plan.limits[resource])}</p>
+                              </> : "—"}
                             </td>
                           </tr>
                         );
