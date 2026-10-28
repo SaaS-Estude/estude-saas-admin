@@ -14,6 +14,8 @@ function failure(code?: string) {
   if (!code) return "";
   if (code === "DNS_CONFLICT") return "Bản ghi DNS đang trỏ nơi khác; cần kiểm tra trên Cloudflare.";
   if (code === "HOSTNAME_OUTSIDE_ZONE_OR_SSL") return "Địa chỉ nằm ngoài zone hoặc có nhiều cấp subdomain. Hãy cập nhật sang địa chỉ một cấp trong zone đã cấu hình.";
+  if (code === "CLEANUP_DNS_NOT_MANAGED") return "Bản ghi cũ không thuộc hệ thống hoặc đã đổi đích. Cần kiểm tra trên Cloudflare trước khi dọn.";
+  if (code === "CLEANUP_HOSTNAME_OUTSIDE_ZONE") return "Địa chỉ cũ nằm ngoài tên miền được cấu hình. Cần dọn tại nhà cung cấp cũ.";
   if (code.includes("401") || code.includes("403")) return "Cần kiểm tra quyền API token của nhà cung cấp.";
   if (code.includes("PENDING")) return "Đang đợi DNS hoặc chứng chỉ HTTPS được cấp.";
   return `Chưa thiết lập được địa chỉ (${code}).`;
@@ -77,6 +79,15 @@ export function DomainProvisionPanel({ id, disabled, onChanged }: { id: string; 
       {domain.lastError && <p className="mt-1 text-amber-800">{failure(domain.lastError)}</p>}
       {(domain.status === "READY" || domain.hostname.endsWith(".localhost")) && <a className="mt-1 inline-block font-medium text-blue-600" href={tenantPortalUrl(domain.hostname)} target="_blank" rel="noreferrer">Mở cổng trường</a>}
     </div>)}
+    {!!detail?.domainCleanup?.length && <div className="space-y-2 rounded-xl border border-slate-200 p-3 text-sm">
+      <h4 className="font-semibold">Dọn địa chỉ cũ</h4>
+      <p>Hệ thống tự xóa địa chỉ cũ trên Cloudflare và Vercel sau khi cả bốn địa chỉ mới sẵn sàng.</p>
+      {detail.domainCleanup.map(domain => <div key={domain.hostname}>
+        <p className="break-all font-mono">{domain.hostname}</p>
+        <p>{domain.status === "CLEANING" ? "Đang dọn" : domain.status === "CLEANUP_ERROR" ? "Chưa dọn được, sẽ thử lại" : "Chờ bốn địa chỉ mới sẵn sàng"}</p>
+        {domain.lastError && <p className="text-amber-800">{failure(domain.lastError)}</p>}
+      </div>)}
+    </div>}
     <button type="button" className={secondaryClass} disabled={disabled || busy || !enabled} onClick={() => void sync()}>{busy ? "Đang xếp lịch…" : "Đồng bộ lại DNS và Vercel"}</button>
   </section>;
 }

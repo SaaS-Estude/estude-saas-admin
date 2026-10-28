@@ -72,3 +72,36 @@ for (const oldHostname of ["admin.lequydonlequy.saas.estude.io.vn","admin-lequyd
     assert.equal(JSON.stringify(renderer.toJSON()).includes("saas.estude.io.vn"),false);
   });
 }
+
+test("old address cleanup is shown separately and disappears after completion",async(t) => {
+  const previous = {setInterval:globalThis.setInterval,clearInterval:globalThis.clearInterval};
+  globalThis.setInterval = () => 1;globalThis.clearInterval = () => {};
+  t.after(() => Object.assign(globalThis,previous));
+  let detail = {
+    tenant:{slug:"school"},
+    domains:tenantDomains.previewTenantDomains("school","estude.io.vn").map(domain => ({hostname:domain.hostname,portal:domain.id,status:"READY"})),
+    domainCleanup:[
+      {hostname:"admin.school.saas.estude.io.vn",status:"REMOVED"},
+      {hostname:"teacher.school.saas.estude.io.vn",status:"CLEANUP_ERROR",lastError:"CLEANUP_DNS_NOT_MANAGED"},
+    ],
+  };
+  const {DomainProvisionPanel} = loadComponent("components/platform/domain-provision-panel.tsx",{
+    "@/lib/platform-api":{platformApi:{
+      tenant:async() => detail,
+      domainSettings:async() => ({automationEnabled:true,automationBaseDomain:"estude.io.vn"}),
+      syncDomains:async() => {detail = {...detail,domainCleanup:[]};},
+    }},
+    "@/lib/tenant-domains":tenantDomains,
+    "@/lib/tenant-portal":{tenantPortalUrl:host => `https://${host}/login`},
+    "./console-ui":{Notice:({children}) => React.createElement("div",null,children),errorText:e => String(e),secondaryClass:""},
+  });
+  let renderer;
+  await act(async() => {renderer = create(React.createElement(DomainProvisionPanel,{id:"school"}));});
+  t.after(async() => {await act(async() => renderer.unmount());});
+  assert.ok(JSON.stringify(renderer.toJSON()).includes("Dọn địa chỉ cũ"));
+  assert.ok(JSON.stringify(renderer.toJSON()).includes("Bản ghi cũ không thuộc hệ thống"));
+  assert.equal(renderer.root.findAllByType("a").length,4);
+  assert.ok(renderer.root.findAllByType("a").every(link => !link.props.href.includes("saas.estude.io.vn")));
+  await act(async() => renderer.root.findByType("button").props.onClick());
+  assert.equal(JSON.stringify(renderer.toJSON()).includes("Dọn địa chỉ cũ"),false);
+});

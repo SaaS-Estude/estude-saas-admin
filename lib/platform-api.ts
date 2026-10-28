@@ -71,6 +71,7 @@ export type Usage = {
 export type TenantDetail = {
   tenant: Tenant;
   domains: { hostname: string; portal: string; status?: string; lastError?: string; attempts?: number }[];
+  domainCleanup?: { hostname: string; status: string; lastError?: string }[];
 };
 export type TenantProfile = {
   name: string;
