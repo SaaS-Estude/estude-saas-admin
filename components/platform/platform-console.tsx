@@ -842,7 +842,7 @@ export function PlatformConsole() {
         </div>
       </aside>
       <div className="min-w-0 lg:ml-64">
-        <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200/70 bg-white/95 px-5 py-4 backdrop-blur-md sm:px-8">
+        <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200/70 bg-white/95 px-3 py-3 backdrop-blur-md sm:px-4">
           <div className="flex min-w-0 items-center gap-2 text-xs text-slate-400 sm:text-sm">
             <ShieldCheck size={17} className="shrink-0 text-blue-600" />
             <span className="hidden whitespace-nowrap sm:inline">Quản trị SaaS</span>
@@ -867,7 +867,7 @@ export function PlatformConsole() {
         </header>
         <main
           id="console-content"
-          className="mx-auto max-w-[1440px] space-y-6 p-4 sm:p-8"
+          className="flex w-full min-w-0 flex-col gap-3 p-3 sm:gap-4 sm:p-4"
         >
           {(tab === "overview" || tab === "tenants") && (
             <div className="flex flex-wrap justify-end gap-2">
@@ -886,7 +886,7 @@ export function PlatformConsole() {
             </div>
           )}
           <nav
-            className="-mx-4 flex gap-1 overflow-x-auto border-y border-slate-200/70 bg-white px-4 py-2 lg:hidden"
+            className="-mx-3 flex gap-1 overflow-x-auto border-y border-slate-200/70 bg-white px-3 py-2 sm:-mx-4 sm:px-4 lg:hidden"
             aria-label="Điều hướng mobile"
           >
             {tabs.map((item) => (
@@ -945,7 +945,7 @@ export function PlatformConsole() {
             ].map((metric) => (
               <div
                 key={metric.label}
-                className="flex min-w-0 items-start justify-between gap-2 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/30 sm:p-5"
+                className="flex min-w-0 items-start justify-between gap-2 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/30"
               >
                 <div>
                   <p className="text-xs font-medium text-slate-500">
@@ -962,8 +962,8 @@ export function PlatformConsole() {
             ))}
           </div>}
           {tab === "overview" && (
-            <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
-              <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
+            <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+              <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
                 <h2 className="text-sm font-semibold">Truy cập nhanh</h2>
                 <div>
                   <div className="mt-4 flex flex-wrap gap-3">
@@ -985,7 +985,7 @@ export function PlatformConsole() {
                   </div>
                 </div>
               </section>
-              <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/20">
+              <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/20">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <Activity size={17} className="text-blue-600" />
                   <h2>Hoạt động cần chú ý</h2>
@@ -1023,7 +1023,7 @@ export function PlatformConsole() {
           )}
           {(tab === "tenants" || tab === "overview") && (
             <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm shadow-slate-200/20">
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 p-3">
                 <h2 className="font-bold">
                   Danh sách trường{" "}
                   <span className="ml-2 rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-500">
@@ -1084,7 +1084,7 @@ export function PlatformConsole() {
               <div aria-busy={busy}>
                 <div className="divide-y divide-slate-100 sm:hidden">
                   {tenants.map((tenant) => (
-                    <article key={tenant.id} className="space-y-4 p-5">
+                    <article key={tenant.id} className="space-y-3 p-4">
                       <div className="flex items-start gap-3">
                         <span className="rounded-xl bg-blue-50 p-2.5 text-blue-600">
                           <Building2 size={19} />
@@ -1119,17 +1119,17 @@ export function PlatformConsole() {
                   <table className="w-full min-w-[640px] text-left text-sm">
                     <thead className="bg-slate-50 text-xs text-slate-500">
                       <tr>
-                        <th className="px-5 py-3 font-medium">Trường học</th>
-                        <th className="px-5 py-3 font-medium">Mã trường</th>
-                        <th className="px-5 py-3 font-medium">Trạng thái</th>
-                        <th className="px-5 py-3 font-medium">Ngày tạo</th>
-                        <th className="px-5 py-3 font-medium">Thao tác</th>
+                        <th className="px-4 py-3 font-medium">Trường học</th>
+                        <th className="px-4 py-3 font-medium">Mã trường</th>
+                        <th className="px-4 py-3 font-medium">Trạng thái</th>
+                        <th className="px-4 py-3 font-medium">Ngày tạo</th>
+                        <th className="px-4 py-3 font-medium">Thao tác</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {tenants.map((tenant) => (
                         <tr key={tenant.id} className="hover:bg-slate-50/60">
-                          <td className="px-5 py-4 font-semibold">
+                          <td className="px-4 py-3 font-semibold">
                             <div className="flex items-center gap-3">
                               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                                 <Building2 size={19} />
@@ -1137,18 +1137,18 @@ export function PlatformConsole() {
                               <span>{tenant.name}</span>
                             </div>
                           </td>
-                          <td className="px-5 py-4 text-slate-500">
+                          <td className="px-4 py-3 text-slate-500">
                             <span className="rounded-md bg-slate-50 px-2 py-1 font-mono text-xs">
                               {tenant.slug}
                             </span>
                           </td>
-                          <td className="px-5 py-4">
+                          <td className="px-4 py-3">
                             <Badge status={tenant.status} />
                           </td>
-                          <td className="whitespace-nowrap px-5 py-4 text-xs text-slate-500">
+                          <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">
                             {dateText(tenant.createdAt)}
                           </td>
-                          <td className="px-5 py-4">
+                          <td className="px-4 py-3">
                             <button
                               onClick={() => setSelected(tenant.id)}
                               className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"
@@ -1204,7 +1204,7 @@ export function PlatformConsole() {
                     </EmptyState>
                   ))}
               </div>
-              <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 text-xs text-slate-500">
+              <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
                 <span>
                   {total > 0
                     ? `${page * 20 + 1}–${Math.min((page + 1) * 20, total)} / ${amount(total)} trường`
@@ -1254,7 +1254,7 @@ export function PlatformConsole() {
                 {plans.map((plan) => (
                   <article
                     key={plan.id}
-                    className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+                    className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs uppercase tracking-widest text-blue-600">

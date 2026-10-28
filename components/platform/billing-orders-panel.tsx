@@ -58,7 +58,7 @@ export function BillingOrdersPanel() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-bold">Đơn thanh toán</h2>
         <div className="flex items-center gap-2">
@@ -119,7 +119,7 @@ export function BillingOrdersPanel() {
         <button type="button" className={secondaryClass} disabled={orders.length < 20 || busy} onClick={() => setPage((p) => p + 1)}>Sau</button>
       </div>
       {selected && (
-        <aside className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 text-sm" aria-label={`Chi tiết đơn ${selected.orderCode}`}>
+        <aside className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm" aria-label={`Chi tiết đơn ${selected.orderCode}`}>
           <div className="flex items-start justify-between gap-3">
             <h3 className="font-semibold">Đơn {selected.orderCode}</h3>
             <div className="flex gap-2">

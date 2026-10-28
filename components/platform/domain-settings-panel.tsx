@@ -88,7 +88,7 @@ export function DomainSettingsPanel({
       );
   }
   return (
-    <section className="space-y-6 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/20 sm:p-7">
+    <section className="space-y-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-200/20">
       {error && <Notice>{error}</Notice>}
       {notice && <SuccessNotice>{notice}</SuccessNotice>}
       {confirmReload && (
@@ -117,7 +117,7 @@ export function DomainSettingsPanel({
         </button>
       </div>
       {settings && (
-        <form onSubmit={save} className="grid gap-7 xl:grid-cols-2">
+        <form onSubmit={save} className="grid gap-4 xl:grid-cols-2">
           <div className="space-y-4">
             <Field label="Tên miền gốc mặc định">
               <input
@@ -155,7 +155,7 @@ export function DomainSettingsPanel({
               Lưu cấu hình tên miền
             </button>
           </div>
-          <div className="self-start rounded-2xl border border-slate-200 bg-slate-50/70 p-5">
+          <div className="self-start rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
             <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
               Xem trước địa chỉ
             </p>

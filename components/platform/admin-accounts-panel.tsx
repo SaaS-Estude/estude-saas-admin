@@ -410,7 +410,7 @@ export function AdminAccountsPanel({
                     "Trạng thái",
                     "Thao tác",
                   ].map((label) => (
-                    <th key={label} className="px-5 py-3 font-medium">
+                    <th key={label} className="px-4 py-3 font-medium">
                       {label}
                     </th>
                   ))}
@@ -422,10 +422,10 @@ export function AdminAccountsPanel({
                     key={`${item.tenantId}:${item.id}`}
                     className="hover:bg-slate-50/60"
                   >
-                    <td className="w-14 px-5 py-4 text-center text-slate-400">
+                    <td className="w-14 px-4 py-3 text-center text-slate-400">
                       {page * 20 + index + 1}
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <span
                           aria-hidden="true"
@@ -444,16 +444,16 @@ export function AdminAccountsPanel({
                         </span>
                       </div>
                     </td>
-                    <td className="px-5 py-4 font-medium">
+                    <td className="px-4 py-3 font-medium">
                       {item.accountName}
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-4 py-3">
                       <p className="font-medium text-slate-700">
                         {item.schoolName}
                       </p>
                       <p className="mt-1 text-xs text-slate-400">{item.slug}</p>
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-4 py-3">
                       <Badge
                         status={item.status}
                         label={
@@ -463,7 +463,7 @@ export function AdminAccountsPanel({
                         }
                       />
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-3">
                         <button
                           className={secondaryClass}
@@ -490,7 +490,7 @@ export function AdminAccountsPanel({
             </table>
           </div>
         )}
-        <div className="flex items-center justify-between border-t border-slate-100 px-5 py-4 text-sm text-slate-500">
+        <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm text-slate-500">
           <span>
             {loading
               ? "Đang tải…"
