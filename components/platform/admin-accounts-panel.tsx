@@ -231,109 +231,108 @@ export function AdminAccountsPanel({
   });
 
   return (
-    <section className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-500">
-          Tối đa 3 tài khoản mỗi trường, bao gồm tài khoản đang khóa.
-        </p>
-        <button
-          type="button"
-          className={primaryClass}
-          disabled={!school || loading || busy || Boolean(loadError)}
-          title={
-            !school ? "Chọn trường trong bộ lọc để cấp tài khoản" : undefined
-          }
-          onClick={() => school && open({ kind: "create", school })}
-        >
-          <Plus size={16} />
-          Cấp tài khoản
-        </button>
-      </div>
+    <section aria-label="Tài khoản quản trị trường" className="space-y-3">
       {success && (
         <SuccessNotice dismiss={() => setSuccess("")}>{success}</SuccessNotice>
       )}
       <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-        <div className="grid items-start gap-3 lg:grid-cols-[minmax(220px,1.4fr)_minmax(220px,1fr)_190px_auto]">
-          <DebouncedSearchInput
-            aria-label="Tìm tài khoản quản trị"
-            value={search}
-            onValueChange={setSearch}
-            onSearch={(value) => {
-              setQuery(value);
-              setPage(0);
-            }}
-            maxLength={150}
-            placeholder="Tìm theo họ tên, tên đăng nhập hoặc trường…"
-            className="!h-[42px] !rounded-lg focus:!ring-0"
-          />
-          <CustomSelect
-            ariaLabel="Trường quản trị"
-            value={school?.id ?? ""}
-            searchable
-            searchPlaceholder="Tìm tên hoặc mã trường…"
-            isSearching={schoolsLoading}
-            disabled={busy}
-            buttonClassName="!h-[42px] !rounded-lg !ring-0"
-            options={[
-              { value: "", label: "Tất cả trường" },
-              ...(school && !schools.some((item) => item.id === school.id)
-                ? [{ value: school.id, label: school.name }]
-                : []),
-              ...schools.map((item) => ({
-                value: item.id,
-                label: `${item.name} (${item.slug})`,
-              })),
-            ]}
-            onSearchChange={(value) => {
-              if (value !== schoolSearch) {
-                setSchoolSearch(value);
-                setSchoolPage(0);
-              }
-            }}
-            onValueChange={(value) => {
-              setSchool(
-                value
-                  ? (schools.find((item) => item.id === value) ??
-                      (school?.id === value ? school : null))
-                  : null,
-              );
-              setPage(0);
-            }}
-          />
-          <CustomSelect
-            ariaLabel="Trạng thái quản trị"
-            value={status}
-            buttonClassName="!h-[42px] !rounded-lg !ring-0"
-            options={[
-              { value: "", label: "Tất cả trạng thái" },
-              { value: "ACTIVE", label: "Hoạt động" },
-              { value: "LOCKED", label: "Đã khóa" },
-              { value: "INACTIVE", label: "Ngừng hoạt động" },
-              { value: "PENDING", label: "Chờ kích hoạt" },
-            ]}
-            onValueChange={(value) => {
-              setStatus(value);
-              setPage(0);
-            }}
-          />
-          {(search || query || status || school) && (
-            <button
-              type="button"
-              className={`${secondaryClass} h-[42px] !rounded-lg`}
-              onClick={() => {
-                setSearch("");
-                setQuery("");
-                setStatus("");
-                setSchool(null);
-                setSchoolSearch("");
-                setSchoolPage(0);
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start">
+          <div className="grid min-w-0 flex-1 items-start gap-3 md:grid-cols-[minmax(200px,1.4fr)_minmax(200px,1fr)_180px]">
+            <DebouncedSearchInput
+              aria-label="Tìm tài khoản quản trị"
+              value={search}
+              onValueChange={setSearch}
+              onSearch={(value) => {
+                setQuery(value);
                 setPage(0);
               }}
+              maxLength={150}
+              placeholder="Tìm theo họ tên, tên đăng nhập hoặc trường…"
+              className="!h-[42px] !rounded-lg focus:!ring-0"
+            />
+            <CustomSelect
+              ariaLabel="Trường quản trị"
+              value={school?.id ?? ""}
+              searchable
+              searchPlaceholder="Tìm tên hoặc mã trường…"
+              isSearching={schoolsLoading}
+              disabled={busy}
+              buttonClassName="!h-[42px] !rounded-lg !ring-0"
+              options={[
+                { value: "", label: "Tất cả trường" },
+                ...(school && !schools.some((item) => item.id === school.id)
+                  ? [{ value: school.id, label: school.name }]
+                  : []),
+                ...schools.map((item) => ({
+                  value: item.id,
+                  label: `${item.name} (${item.slug})`,
+                })),
+              ]}
+              onSearchChange={(value) => {
+                if (value !== schoolSearch) {
+                  setSchoolSearch(value);
+                  setSchoolPage(0);
+                }
+              }}
+              onValueChange={(value) => {
+                setSchool(
+                  value
+                    ? (schools.find((item) => item.id === value) ??
+                        (school?.id === value ? school : null))
+                    : null,
+                );
+                setPage(0);
+              }}
+            />
+            <CustomSelect
+              ariaLabel="Trạng thái quản trị"
+              value={status}
+              buttonClassName="!h-[42px] !rounded-lg !ring-0"
+              options={[
+                { value: "", label: "Tất cả trạng thái" },
+                { value: "ACTIVE", label: "Hoạt động" },
+                { value: "LOCKED", label: "Đã khóa" },
+                { value: "INACTIVE", label: "Ngừng hoạt động" },
+                { value: "PENDING", label: "Chờ kích hoạt" },
+              ]}
+              onValueChange={(value) => {
+                setStatus(value);
+                setPage(0);
+              }}
+            />
+          </div>
+          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+            {(search || query || status || school) && (
+              <button
+                type="button"
+                className={`${secondaryClass} h-[42px] !rounded-lg`}
+                onClick={() => {
+                  setSearch("");
+                  setQuery("");
+                  setStatus("");
+                  setSchool(null);
+                  setSchoolSearch("");
+                  setSchoolPage(0);
+                  setPage(0);
+                }}
+              >
+                <X size={15} />
+                Xóa bộ lọc
+              </button>
+            )}
+            <button
+              type="button"
+              className={`${primaryClass} h-[42px] !rounded-lg`}
+              disabled={!school || loading || busy || Boolean(loadError)}
+              title={
+                !school ? "Chọn trường trong bộ lọc để cấp tài khoản" : undefined
+              }
+              onClick={() => school && open({ kind: "create", school })}
             >
-              <X size={15} />
-              Xóa bộ lọc
+              <Plus size={16} />
+              Cấp tài khoản
             </button>
-          )}
+          </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
           <p>

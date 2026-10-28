@@ -60,7 +60,7 @@ export function BillingOrdersPanel() {
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-bold">Đơn thanh toán PayOS</h2>
+        <h2 className="text-lg font-bold">Đơn thanh toán</h2>
         <div className="flex items-center gap-2">
           <select
             aria-label="Lọc theo trạng thái"

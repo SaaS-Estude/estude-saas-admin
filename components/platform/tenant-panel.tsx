@@ -515,7 +515,7 @@ export function TenantPanel({
                       {settings.logoDataUrl ? <button type="button" className="text-sm font-semibold text-rose-700" onClick={() => setSettings({ ...settings, logoDataUrl: "" })}>Gỡ logo</button> : null}
                     </div>
                   </div>
-                  <p className="mt-2 text-xs leading-5 text-slate-500">PNG, JPG hoặc WebP, tối đa 512 KB. Logo dùng ở trang đăng nhập, thanh điều hướng và biểu tượng tab của trường. Bấm Lưu thay đổi để áp dụng; gỡ logo để dùng lại EStude.</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">PNG, JPG hoặc WebP · Tối đa 512 KB.</p>
                 </Field>
                 <Field label="Màu thương hiệu">
                   <input

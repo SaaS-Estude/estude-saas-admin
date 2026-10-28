@@ -197,6 +197,52 @@ export function EmptyState({
     </div>
   );
 }
+const scrollLocks = new WeakMap<Document, { count: number; restore: () => void }>();
+
+function lockModalScroll(doc: Document) {
+  let lock = scrollLocks.get(doc);
+  if (!lock) {
+    const root = doc.documentElement;
+    const body = doc.body;
+    const rootOverflow = root.style.overflow;
+    const bodyOverflow = body.style.overflow;
+    const bodyPadding = body.style.paddingRight;
+    const gutter = Math.max(
+      0,
+      (doc.defaultView?.innerWidth ?? root.clientWidth) - root.clientWidth,
+    );
+    if (gutter > 0) {
+      const padding =
+        parseFloat(doc.defaultView?.getComputedStyle(body).paddingRight ?? "0") || 0;
+      body.style.paddingRight = `${padding + gutter}px`;
+    }
+    root.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    lock = {
+      count: 0,
+      restore: () => {
+        root.style.overflow = rootOverflow;
+        body.style.overflow = bodyOverflow;
+        body.style.paddingRight = bodyPadding;
+      },
+    };
+    scrollLocks.set(doc, lock);
+  }
+  lock.count += 1;
+  const current = lock;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    current.count -= 1;
+    // A confirmation dialog may outlive the dialog that opened it.
+    if (current.count === 0) {
+      current.restore();
+      scrollLocks.delete(doc);
+    }
+  };
+}
+
 export function Modal({
   title,
   titleBadge,
@@ -240,10 +286,10 @@ export function Modal({
         previous.focus();
     };
   }, [confirming]);
+  useEffect(() => lockModalScroll(document), []);
   useEffect(() => {
+    if (hidden) return;
     const previous = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const focusable = () =>
       Array.from(
         dialog.current?.querySelectorAll<HTMLElement>(
@@ -268,15 +314,14 @@ export function Modal({
     };
     document.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKey);
       if (previous instanceof HTMLElement && previous.isConnected)
         previous.focus();
     };
-  }, []);
+  }, [hidden]);
   return (
     <div
-      className={`fixed inset-0 z-50 ${hidden ? "hidden" : "flex"} items-center justify-center overflow-y-auto bg-slate-950/40 p-3 backdrop-blur-sm sm:p-6`}
+      className={`fixed inset-0 z-50 ${hidden ? "hidden" : "flex"} items-center justify-center overflow-hidden bg-slate-950/40 p-3 backdrop-blur-sm sm:p-6`}
       onClick={requestClose}
     >
       <section
@@ -284,7 +329,7 @@ export function Modal({
         role={confirming ? "alertdialog" : "dialog"}
         aria-modal="true"
         aria-label={confirming ? "Hủy bỏ thay đổi?" : title}
-        className={`my-auto flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ${confirming ? "max-w-lg" : size === "wide" ? "max-w-6xl" : "max-w-2xl"}`}
+        className={`my-auto flex min-h-0 max-h-[min(92dvh,calc(100dvh-1.5rem))] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[min(92dvh,calc(100dvh-3rem))] ${confirming ? "max-w-lg" : size === "wide" ? "max-w-6xl" : "max-w-2xl"}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="z-10 flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 bg-white px-5 py-4 sm:px-6">
@@ -306,7 +351,7 @@ export function Modal({
         </div>
         <div
           hidden={confirming}
-          className="min-h-0 space-y-5 overflow-y-auto p-6"
+          className="min-h-0 space-y-5 overflow-y-auto overscroll-contain p-6"
         >
           {typeof children === "function" ? children(requestClose) : children}
         </div>
@@ -316,7 +361,7 @@ export function Modal({
           </div>
         )}
         {confirming && (
-          <div className="space-y-6 p-6">
+          <div className="min-h-0 space-y-6 overflow-y-auto overscroll-contain p-6">
             <p className="text-sm leading-6 text-slate-600">
               Bạn có muốn hủy bỏ thay đổi? Dữ liệu đã nhập sẽ không được lưu.
             </p>

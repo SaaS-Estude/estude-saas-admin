@@ -45,9 +45,6 @@ export function TenantUsagePanel({
           <h3 id={`${id}-title`} className="font-bold">
             Mức sử dụng
           </h3>
-          <p className="mt-1 text-sm leading-6 text-slate-500">
-            Theo dõi tài nguyên đã dùng và điều chỉnh hạn mức riêng cho trường.
-          </p>
         </div>
         {plan && (
           <span className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600">

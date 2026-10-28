@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Globe, RefreshCw, ArrowUpRight } from "lucide-react";
+import { RefreshCw, ArrowUpRight } from "lucide-react";
 import { platformApi, type DomainSettings } from "@/lib/platform-api";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 import { previewTenantDomains } from "@/lib/tenant-domains";
@@ -89,16 +89,6 @@ export function DomainSettingsPanel({
   }
   return (
     <section className="space-y-6 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-200/20 sm:p-7">
-      <div>
-        <span className="mb-4 inline-flex rounded-xl bg-blue-50 p-3 text-blue-600">
-          <Globe size={23} />
-        </span>
-        <h2 className="text-lg font-bold tracking-tight">Cấu hình tên miền</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
-          Đặt tên miền gốc mặc định khi tạo trường. Mỗi trường có subdomain
-          riêng và bốn portal: quản trị, giáo viên, học sinh, phụ huynh.
-        </p>
-      </div>
       {error && <Notice>{error}</Notice>}
       {notice && <SuccessNotice>{notice}</SuccessNotice>}
       {confirmReload && (
@@ -110,19 +100,22 @@ export function DomainSettingsPanel({
           }}
         />
       )}
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => {
-          setNotice("");
-          if (dirty) setConfirmReload(true);
-          else void load();
-        }}
-        className={secondaryClass}
-      >
-        <RefreshCw size={15} className={busy ? "animate-spin" : ""} />
-        {busy ? "Đang tải…" : "Tải lại cấu hình tên miền"}
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-bold">Tên miền</h2>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            setNotice("");
+            if (dirty) setConfirmReload(true);
+            else void load();
+          }}
+          className={secondaryClass}
+        >
+          <RefreshCw size={15} className={busy ? "animate-spin" : ""} />
+          {busy ? "Đang tải…" : "Tải lại cấu hình tên miền"}
+        </button>
+      </div>
       {settings && (
         <form onSubmit={save} className="grid gap-7 xl:grid-cols-2">
           <div className="space-y-4">
@@ -147,13 +140,12 @@ export function DomainSettingsPanel({
               localhost cho môi trường local.
             </p>
             <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4 text-sm leading-6 text-blue-900">
-              Thay đổi này áp dụng cho các yêu cầu tạo trường sau khi lưu. Địa
-              chỉ của trường đã tạo và yêu cầu đang chờ xử lý được giữ nguyên.
+              Chỉ áp dụng cho trường tạo mới; không đổi địa chỉ trường hiện có hoặc yêu cầu đang chờ.
             </div>
             <p className="text-xs leading-6 text-slate-500">
               {settings.automationEnabled
-                ? "Đã bật tự động tạo DNS Cloudflare và gắn domain Vercel cho từng trường. Trạng thái thiết lập hiển thị trong chi tiết trường."
-                : "Chưa bật tự động thiết lập tên miền. Cần cấu hình kết nối Cloudflare và Vercel trên máy chủ để tạo DNS và HTTPS tự động."}
+                ? "Tự động thiết lập DNS và HTTPS: Đã bật."
+                : "Tự động thiết lập DNS và HTTPS: Chưa bật. Cần kết nối Cloudflare và Vercel trên máy chủ."}
             </p>
             <button
               type="submit"

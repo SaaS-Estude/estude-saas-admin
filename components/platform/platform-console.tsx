@@ -816,10 +816,7 @@ export function PlatformConsole() {
             </span>
           </div>
         </div>
-        <p className="mb-3 mt-8 px-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-          Không gian làm việc
-        </p>
-        <nav className="space-y-1.5" aria-label="Điều hướng quản trị">
+        <nav className="mt-8 space-y-1.5" aria-label="Điều hướng quản trị">
           {tabs.map((item) => (
             <button
               key={item.id}
@@ -850,9 +847,9 @@ export function PlatformConsole() {
             <ShieldCheck size={17} className="shrink-0 text-blue-600" />
             <span className="hidden whitespace-nowrap sm:inline">Quản trị SaaS</span>
             <ChevronRight size={14} className="hidden shrink-0 sm:block" />
-            <span className="truncate font-medium text-slate-700">
+            <h1 className="truncate font-medium text-slate-700">
               {tabs.find((item) => item.id === tab)?.name}
-            </span>
+            </h1>
           </div>
           <div className="ml-auto flex min-w-0 max-w-[65%] shrink-0 items-center gap-2.5 sm:max-w-xs sm:gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold uppercase text-slate-600">
@@ -872,27 +869,8 @@ export function PlatformConsole() {
           id="console-content"
           className="mx-auto max-w-[1440px] space-y-6 p-4 sm:p-8"
         >
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600">
-                EStude Platform
-              </p>
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                {tab === "admins" ? "Tài khoản quản trị trường" : "Quản lý hệ thống"}
-              </h1>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                {tab === "overview"
-                  ? "Tổng quan trường học và hoạt động trên nền tảng của bạn."
-                  : tab === "tenants"
-                    ? "Quản lý không gian học tập và trạng thái của từng trường."
-                    : tab === "admins"
-                      ? "Cấp tài khoản, khóa hoặc mở khóa và đặt lại mật khẩu quản trị theo từng trường."
-                    : tab === "domains"
-                      ? "Thiết lập địa chỉ truy cập mặc định cho trường mới."
-                      : "Quản lý gói dịch vụ, tính năng và hạn mức sử dụng."}
-              </p>
-            </div>
-            {tab !== "admins" && <div className="flex gap-2">
+          {(tab === "overview" || tab === "tenants") && (
+            <div className="flex flex-wrap justify-end gap-2">
               <button
                 className={secondaryClass}
                 onClick={() => void load()}
@@ -901,15 +879,12 @@ export function PlatformConsole() {
                 <RefreshCw size={16} className={busy ? "animate-spin" : ""} />
                 Làm mới
               </button>
-              <button
-                className={primaryClass}
-                onClick={() => setModal("tenant")}
-              >
+              <button className={primaryClass} onClick={() => setModal("tenant")}>
                 <Plus size={17} />
                 Tạo trường
               </button>
-            </div>}
-          </div>
+            </div>
+          )}
           <nav
             className="-mx-4 flex gap-1 overflow-x-auto border-y border-slate-200/70 bg-white px-4 py-2 lg:hidden"
             aria-label="Điều hướng mobile"
@@ -941,7 +916,7 @@ export function PlatformConsole() {
               {notice}
             </SuccessNotice>
           )}
-          {tab !== "admins" && <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+          {(tab === "overview" || tab === "tenants") && <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             {[
               {
                 label: "Tổng trường học",
@@ -988,26 +963,13 @@ export function PlatformConsole() {
           </div>}
           {tab === "overview" && (
             <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
-              <section className="relative overflow-hidden rounded-2xl bg-[#163b80] p-6 text-white sm:p-7">
-                <div
-                  aria-hidden="true"
-                  className="absolute -right-12 -top-16 h-64 w-64 rounded-full border-[32px] border-white/5"
-                />
-                <div className="relative">
-                  <p className="text-xs font-medium text-blue-200">
-                    KHÔNG GIAN LÀM VIỆC
-                  </p>
-                  <h2 className="mt-3 text-xl font-semibold tracking-tight">
-                    Sẵn sàng đồng hành cùng các trường
-                  </h2>
-                  <p className="mt-3 max-w-lg text-sm leading-6 text-blue-100/80">
-                    Thiết lập trường học, quản lý dịch vụ và theo dõi hoạt động
-                    hằng ngày ngay tại đây.
-                  </p>
-                  <div className="mt-6 flex flex-wrap gap-3">
+              <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
+                <h2 className="text-sm font-semibold">Truy cập nhanh</h2>
+                <div>
+                  <div className="mt-4 flex flex-wrap gap-3">
                     <button
                       onClick={() => changeTab("domains")}
-                      className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-blue-800 shadow-sm hover:bg-blue-50"
+                      className={secondaryClass}
                     >
                       <Globe size={15} />
                       Cấu hình tên miền
@@ -1015,7 +977,7 @@ export function PlatformConsole() {
                     </button>
                     <button
                       onClick={() => changeTab("plans")}
-                      className="inline-flex items-center gap-2 rounded-xl border border-white/25 px-4 py-2.5 text-xs font-medium text-white hover:bg-white/10"
+                      className={secondaryClass}
                     >
                       Xem gói dịch vụ
                       <ArrowRight size={14} />
@@ -1028,9 +990,6 @@ export function PlatformConsole() {
                   <Activity size={17} className="text-blue-600" />
                   <h2>Hoạt động cần chú ý</h2>
                 </div>
-                <p className="mt-2 text-xs leading-5 text-slate-400">
-                  Tiến trình khởi tạo không gian cho các trường.
-                </p>
                 <div className="mt-5 flex w-full items-center justify-between rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
                   <span className="flex items-center gap-2">
                     <ListChecks size={17} />
@@ -1275,15 +1234,21 @@ export function PlatformConsole() {
           )}
           {tab === "plans" && (
             <section className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-bold">Gói dịch vụ</h2>
-                <button
-                  onClick={() => { setEditingPlan(null); setModal("plan"); }}
-                  className={primaryClass}
-                >
-                  <Plus size={16} />
-                  Tạo gói
-                </button>
+                <div className="flex gap-2">
+                  <button className={secondaryClass} onClick={() => void load()} disabled={busy}>
+                    <RefreshCw size={16} className={busy ? "animate-spin" : ""} />
+                    Làm mới
+                  </button>
+                  <button
+                    onClick={() => { setEditingPlan(null); setModal("plan"); }}
+                    className={primaryClass}
+                  >
+                    <Plus size={16} />
+                    Tạo gói
+                  </button>
+                </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {plans.map((plan) => (
@@ -1354,9 +1319,9 @@ export function PlatformConsole() {
                   }
                 />
               )}
-              <p className="text-xs text-slate-500">
-                Gói đang hoạt động, có giá và được mở bán sẽ hiển thị tại <a href="/" target="_blank" rel="noreferrer" className="font-semibold text-blue-600 underline">trang bảng giá</a>. Đơn hàng PayOS nằm ở thẻ “Đơn thanh toán”.
-              </p>
+              <a href="/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline">
+                Xem bảng giá công khai <ArrowUpRight size={15} />
+              </a>
             </section>
           )}
           {tab === "admins" && <AdminAccountsPanel onDirtyChange={setDomainDirty} onBusyChange={setDomainBusy} />}

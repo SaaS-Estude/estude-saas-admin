@@ -495,7 +495,7 @@ test("an unavailable overview does not turn an empty but loaded plan list into a
 });
 
 
-test("admin account tab omits school actions and metrics while the schools tab retains them", async t => {
+test("console tabs omit promotional headers and keep school controls in the school views", async t => {
   environment(t);
   const {PlatformConsole} = consoleModule({
     me: async () => ({accountName:"operator"}),
@@ -508,8 +508,16 @@ test("admin account tab omits school actions and metrics while the schools tab r
   assert.equal(button(renderer,"Tạo trường"),undefined);
   assert.equal(button(renderer,"Làm mới"),undefined);
   assert.doesNotMatch(text(renderer),/Tổng trường học|Chờ tạo trường/);
-  assert.match(text(renderer),/Tài khoản quản trị trường/);
+  assert.doesNotMatch(text(renderer),/EStude Platform|Quản lý hệ thống|Cấp tài khoản, khóa/);
   await act(async () => button(renderer,"Trường học").props.onClick());
   assert.ok(button(renderer,"Tạo trường"));
   assert.ok(button(renderer,"Làm mới"));
+  for (const tab of ["Tổng quan", "Trường học", "Tên miền", "Gói dịch vụ", "Đơn thanh toán"]) {
+    await act(async () => button(renderer, tab).props.onClick());
+    assert.doesNotMatch(text(renderer), /EStude Platform|Quản lý hệ thống|Sẵn sàng đồng hành/);
+    if (["Tên miền", "Gói dịch vụ", "Đơn thanh toán"].includes(tab)) {
+      assert.equal(button(renderer, "Tạo trường"), undefined);
+      assert.doesNotMatch(text(renderer), /Tổng trường học|Chờ tạo trường/);
+    }
+  }
 });
