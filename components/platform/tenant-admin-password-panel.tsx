@@ -151,10 +151,8 @@ export function TenantAdminPasswordPanel({
           {error && <Notice>{error}</Notice>}
           {success && <SuccessNotice>{success}</SuccessNotice>}
           <fieldset disabled={disabled || busy} className="space-y-4">
-            <Field label="Tài khoản quản trị">
-              {account ? (
-                <input readOnly value={`${account.accountName} — ${account.fullName}`} className={`${inputClass} bg-slate-50`} />
-              ) : <select
+            {!account && <Field label="Tài khoản quản trị">
+              <select
                 value={selected}
                 className={inputClass}
                 onChange={(event) => {
@@ -171,8 +169,8 @@ export function TenantAdminPasswordPanel({
                     {account.status === "ACTIVE" ? "" : " (Đang khóa)"}
                   </option>
                 ))}
-              </select>}
-            </Field>
+              </select>
+            </Field>}
             <div className="grid gap-4 sm:grid-cols-2">
               <PasswordField
                 label="Mật khẩu mới"

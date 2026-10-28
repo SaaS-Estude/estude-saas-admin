@@ -493,3 +493,23 @@ test("an unavailable overview does not turn an empty but loaded plan list into a
   assert.match(text(renderer), /Chưa có gói dịch vụ/);
   assert.doesNotMatch(text(renderer), /Chưa tải được gói dịch vụ/);
 });
+
+
+test("admin account tab omits school actions and metrics while the schools tab retains them", async t => {
+  environment(t);
+  const {PlatformConsole} = consoleModule({
+    me: async () => ({accountName:"operator"}),
+    overview: async () => ({total:1,active:1,pending:0,failed:0,suspended:0}),
+    tenants: async () => ({data:[],total:0}), plans: async () => [],
+  }, {"./admin-accounts-panel":{AdminAccountsPanel:()=>React.createElement("test-accounts")}});
+  const renderer = await mount(t,PlatformConsole);
+  await act(async () => button(renderer,"Quản trị trường").props.onClick());
+  assert.equal(renderer.root.findAllByType("test-accounts").length,1);
+  assert.equal(button(renderer,"Tạo trường"),undefined);
+  assert.equal(button(renderer,"Làm mới"),undefined);
+  assert.doesNotMatch(text(renderer),/Tổng trường học|Chờ tạo trường/);
+  assert.match(text(renderer),/Tài khoản quản trị trường/);
+  await act(async () => button(renderer,"Trường học").props.onClick());
+  assert.ok(button(renderer,"Tạo trường"));
+  assert.ok(button(renderer,"Làm mới"));
+});

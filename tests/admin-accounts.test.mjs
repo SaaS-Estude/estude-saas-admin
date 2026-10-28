@@ -34,7 +34,14 @@ const button = (renderer, label) =>
     );
 async function mount(t, overrides = {}) {
   const old = globalThis.window;
-  globalThis.window = { addEventListener: noop, removeEventListener: noop };
+  const oldDocument = globalThis.document;
+  globalThis.window = {
+    addEventListener: noop,
+    removeEventListener: noop,
+    setTimeout,
+    clearTimeout,
+  };
+  globalThis.document = { addEventListener: noop, removeEventListener: noop };
   const calls = [],
     dirty = [],
     busy = [];
@@ -54,12 +61,28 @@ async function mount(t, overrides = {}) {
       "./console-ui": ui,
     },
   );
+  const cn = loadComponent("lib/cn.ts");
+  const custom = loadComponent("components/ui/custom-select.tsx", {
+    "@/lib/cn": cn,
+    "@/lib/search-keyword": loadComponent("lib/search-keyword.ts"),
+  });
+  const controls = loadComponent("components/ui/form-control.tsx", {
+    "@/lib/cn": cn,
+    "./custom-select": custom,
+  });
+  const searchInput = loadComponent(
+    "components/ui/debounced-search-input.tsx",
+    { "@/lib/cn": cn, "@/components/ui/form-control": controls },
+  );
   const { AdminAccountsPanel } = loadComponent(
     "components/platform/admin-accounts-panel.tsx",
     {
       "@/lib/platform-api": { platformApi: api },
       "@/lib/use-unsaved-changes": hooks,
       "./tenant-admin-password-panel": { TenantAdminPasswordPanel },
+      "@/components/ui/custom-select": custom,
+      "@/components/ui/toggle-switch":loadComponent("components/ui/toggle-switch.tsx",{"@/lib/cn":cn}),
+      "@/components/ui/debounced-search-input": searchInput,
       "./console-ui": {
         ...ui,
         Modal: ({ children, ...props }) =>
@@ -82,15 +105,21 @@ async function mount(t, overrides = {}) {
   await act(async () => new Promise((resolve) => setTimeout(resolve, 230)));
   t.after(async () => {
     await act(async () => renderer.unmount());
+    if (oldDocument) globalThis.document = oldDocument;
+    else delete globalThis.document;
     if (old) globalThis.window = old;
     else delete globalThis.window;
   });
   const change = async (label, value) =>
-    act(async () =>
-      renderer.root
-        .findByProps({ "aria-label": label })
-        .props.onChange({ target: { value } }),
-    );
+    act(async () => {
+      const select = renderer.root.findAllByProps({ ariaLabel: label })[0];
+      if (select) select.props.onValueChange(value);
+      else
+        renderer.root
+          .findAllByType("input")
+          .find((node) => node.props["aria-label"] === label)
+          .props.onChange({ target: { value } });
+    });
   const submit = async () =>
     act(async () => {
       await renderer.root
@@ -107,6 +136,7 @@ test("directory filters by school, account and status and password form binds th
     resetTenantAdminPassword: async (...args) => writes.push(args),
   });
   assert.match(text(f.renderer), /Trường A/);
+  assert.equal(button(f.renderer, "Tải lại danh sách"), undefined);
   assert.equal(button(f.renderer, "Cấp tài khoản").props.disabled, true);
   await f.change("Trường quản trị", "school-a");
   assert.equal(f.calls.at(-1)[1], "school-a");
@@ -119,11 +149,8 @@ test("directory filters by school, account and status and password form binds th
   await act(async () => button(f.renderer, "Đổi mật khẩu").props.onClick());
   const modal = f.renderer.root.findByType("test-modal");
   assert.equal(modal.findAllByType("select").length, 0);
-  assert.equal(
-    modal.findAllByType("input").find((node) => node.props.readOnly).props
-      .value,
-    "admin — Quản trị A",
-  );
+  assert.equal(modal.findAllByType("input").filter(node => node.props.readOnly).length, 0);
+  assert.match(text(f.renderer), /Trường A · admin/);
   for (const input of modal
     .findAllByType("input")
     .filter((node) => node.props.autoComplete === "new-password"))
@@ -148,7 +175,11 @@ test("locking confirms the exact school/account, sends expected status once and 
       });
     },
   });
-  await act(async () => button(f.renderer, "Khóa").props.onClick());
+  const toggle = () => f.renderer.root.findByProps({role:"switch"});
+  assert.equal(toggle().props["aria-checked"],true);
+  assert.match(toggle().props["aria-label"],/Khóa tài khoản admin của Trường A/);
+  await act(async () => toggle().props.onClick());
+  assert.equal(toggle().props["aria-checked"],true);
   assert.match(text(f.renderer), /Trường A · admin/);
   assert.equal(writes.length, 0);
   let saving;
@@ -159,6 +190,7 @@ test("locking confirms the exact school/account, sends expected status once and 
   });
   assert.deepEqual(writes, [["school-a", "admin-a", "LOCKED", "ACTIVE"]]);
   assert.equal(f.busy.at(-1), true);
+  assert.equal(toggle().props.disabled,true);
   assert.equal(
     f.renderer.root.findByType("test-modal").props.closeDisabled,
     true,
@@ -247,4 +279,55 @@ test("create validates passwords and clears credentials after successful allocat
   assert.match(text(f.renderer), /Đã cấp tài khoản admin.new/);
   assert.equal(f.dirty.at(-1), false);
   assert.equal(f.renderer.root.findAllByType("test-modal").length, 0);
+});
+
+test("search debounces, clears all filters, and returns to the first account page", async (t) => {
+  const fCalls = [];
+  const f = await mount(t, {
+    adminDirectory: async (...args) => {
+      fCalls.push(args);
+      return { items: [account], total: 45 };
+    },
+  });
+  await f.change("Trường quản trị", "school-a");
+  await f.change("Trạng thái quản trị", "LOCKED");
+  await act(async () => button(f.renderer, "Tiếp").props.onClick());
+  assert.equal(fCalls.at(-1)[3], 1);
+  await f.change("Tìm tài khoản quản trị", "admin.new");
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 530)));
+  assert.deepEqual(fCalls.at(-1), ["admin.new", "school-a", "LOCKED", 0]);
+  await act(async () => button(f.renderer, "Xóa bộ lọc").props.onClick());
+  assert.deepEqual(fCalls.at(-1), ["", "", "", 0]);
+  assert.equal(button(f.renderer, "Cấp tài khoản").props.disabled, true);
+});
+
+
+test("off switch opens unlock confirmation, cancellation and errors preserve its state", async t => {
+  let status = "LOCKED", fail = true;
+  const writes = [];
+  const f = await mount(t, {
+    adminDirectory: async () => ({items:[{...account,status}],total:1}),
+    setTenantAdminStatus: async (...args) => {
+      writes.push(args);
+      if(fail) throw Error("Không thể cập nhật tài khoản");
+      status=args[2];
+    },
+  });
+  const toggle=()=>f.renderer.root.findByProps({role:"switch"});
+  assert.equal(toggle().props["aria-checked"],false);
+  assert.match(toggle().props["aria-label"],/Mở khóa tài khoản admin của Trường A/);
+  await act(async()=>toggle().props.onClick());
+  assert.equal(writes.length,0);
+  await act(async()=>f.renderer.root.findByType("test-modal").props.close());
+  assert.equal(toggle().props["aria-checked"],false);
+  assert.equal(writes.length,0);
+  await act(async()=>toggle().props.onClick());
+  await f.submit();
+  assert.equal(toggle().props["aria-checked"],false);
+  assert.match(text(f.renderer),/Không thể cập nhật tài khoản/);
+  assert.deepEqual(writes[0],["school-a","admin-a","ACTIVE","LOCKED"]);
+  fail=false;
+  await f.submit();
+  assert.equal(toggle().props["aria-checked"],true);
+  assert.equal(f.renderer.root.findAllByType("test-modal").length,0);
 });

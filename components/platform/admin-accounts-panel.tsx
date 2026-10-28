@@ -7,21 +7,16 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import {
-  KeyRound,
-  LockKeyhole,
-  Plus,
-  RefreshCw,
-  Search,
-  UnlockKeyhole,
-  UsersRound,
-} from "lucide-react";
+import { KeyRound, Plus, X } from "lucide-react";
 import {
   platformApi,
   type AdminDirectoryAccount,
   type Tenant,
 } from "@/lib/platform-api";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
+import { ToggleSwitch } from "@/components/ui/toggle-switch";
+import { CustomSelect } from "@/components/ui/custom-select";
+import { DebouncedSearchInput } from "@/components/ui/debounced-search-input";
 import { TenantAdminPasswordPanel } from "./tenant-admin-password-panel";
 import {
   Badge,
@@ -238,148 +233,156 @@ export function AdminAccountsPanel({
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-bold">
-            <UsersRound size={21} />
-            Tài khoản quản trị trường
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Tối đa 3 tài khoản mỗi trường, bao gồm tài khoản đang khóa.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            className={secondaryClass}
-            disabled={loading || busy}
-            onClick={() => setRevision((value) => value + 1)}
-          >
-            <RefreshCw size={16} />
-            Tải lại danh sách
-          </button>
-          <button
-            className={primaryClass}
-            disabled={!school || loading || busy || Boolean(loadError)}
-            onClick={() => school && open({ kind: "create", school })}
-          >
-            <Plus size={16} />
-            Cấp tài khoản
-          </button>
-        </div>
+        <p className="text-sm text-slate-500">
+          Tối đa 3 tài khoản mỗi trường, bao gồm tài khoản đang khóa.
+        </p>
+        <button
+          type="button"
+          className={primaryClass}
+          disabled={!school || loading || busy || Boolean(loadError)}
+          title={
+            !school ? "Chọn trường trong bộ lọc để cấp tài khoản" : undefined
+          }
+          onClick={() => school && open({ kind: "create", school })}
+        >
+          <Plus size={16} />
+          Cấp tài khoản
+        </button>
       </div>
       {success && (
         <SuccessNotice dismiss={() => setSuccess("")}>{success}</SuccessNotice>
       )}
-      <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 lg:grid-cols-3">
-        <div className="space-y-3">
-          <Field label="Tìm trường">
-            <input
-              aria-label="Tìm trường quản trị"
-              className={inputClass}
-              placeholder="Tên hoặc mã trường…"
-              value={schoolSearch}
-              maxLength={150}
-              onChange={(event) => {
-                setSchoolSearch(event.target.value);
+      <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="grid items-start gap-3 lg:grid-cols-[minmax(220px,1.4fr)_minmax(220px,1fr)_190px_auto]">
+          <DebouncedSearchInput
+            aria-label="Tìm tài khoản quản trị"
+            value={search}
+            onValueChange={setSearch}
+            onSearch={(value) => {
+              setQuery(value);
+              setPage(0);
+            }}
+            maxLength={150}
+            placeholder="Tìm theo họ tên, tên đăng nhập hoặc trường…"
+            className="!h-[42px] !rounded-lg focus:!ring-0"
+          />
+          <CustomSelect
+            ariaLabel="Trường quản trị"
+            value={school?.id ?? ""}
+            searchable
+            searchPlaceholder="Tìm tên hoặc mã trường…"
+            isSearching={schoolsLoading}
+            disabled={busy}
+            buttonClassName="!h-[42px] !rounded-lg !ring-0"
+            options={[
+              { value: "", label: "Tất cả trường" },
+              ...(school && !schools.some((item) => item.id === school.id)
+                ? [{ value: school.id, label: school.name }]
+                : []),
+              ...schools.map((item) => ({
+                value: item.id,
+                label: `${item.name} (${item.slug})`,
+              })),
+            ]}
+            onSearchChange={(value) => {
+              if (value !== schoolSearch) {
+                setSchoolSearch(value);
                 setSchoolPage(0);
-              }}
-            />
-          </Field>
-          <Field label="Lọc theo trường">
-            <select
-              aria-label="Trường quản trị"
-              className={inputClass}
-              disabled={schoolsLoading || busy}
-              value={school?.id ?? ""}
-              onChange={(event) => {
-                setSchool(
-                  schools.find((item) => item.id === event.target.value) ??
-                    null,
-                );
+              }
+            }}
+            onValueChange={(value) => {
+              setSchool(
+                value
+                  ? (schools.find((item) => item.id === value) ??
+                      (school?.id === value ? school : null))
+                  : null,
+              );
+              setPage(0);
+            }}
+          />
+          <CustomSelect
+            ariaLabel="Trạng thái quản trị"
+            value={status}
+            buttonClassName="!h-[42px] !rounded-lg !ring-0"
+            options={[
+              { value: "", label: "Tất cả trạng thái" },
+              { value: "ACTIVE", label: "Hoạt động" },
+              { value: "LOCKED", label: "Đã khóa" },
+              { value: "INACTIVE", label: "Ngừng hoạt động" },
+              { value: "PENDING", label: "Chờ kích hoạt" },
+            ]}
+            onValueChange={(value) => {
+              setStatus(value);
+              setPage(0);
+            }}
+          />
+          {(search || query || status || school) && (
+            <button
+              type="button"
+              className={`${secondaryClass} h-[42px] !rounded-lg`}
+              onClick={() => {
+                setSearch("");
+                setQuery("");
+                setStatus("");
+                setSchool(null);
+                setSchoolSearch("");
+                setSchoolPage(0);
                 setPage(0);
               }}
             >
-              <option value="">Tất cả trường</option>
-              {school && !schools.some((item) => item.id === school.id) && (
-                <option value={school.id}>{school.name}</option>
-              )}
-              {schools.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} ({item.slug})
-                </option>
-              ))}
-            </select>
-          </Field>
-          <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
-            <button
-              className="disabled:opacity-40"
-              disabled={schoolPage === 0 || schoolsLoading}
-              onClick={() => setSchoolPage((value) => value - 1)}
-            >
-              Trường trước
+              <X size={15} />
+              Xóa bộ lọc
             </button>
-            <span>
-              {schoolsLoading ? "Đang tải trường…" : `${schoolTotal} trường`}
-            </span>
-            <button
-              className="disabled:opacity-40"
-              disabled={(schoolPage + 1) * 20 >= schoolTotal || schoolsLoading}
-              onClick={() => setSchoolPage((value) => value + 1)}
-            >
-              Trường tiếp
-            </button>
-          </div>
-          {schoolError && <Notice>{schoolError}</Notice>}
+          )}
         </div>
-        <form
-          className="space-y-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setQuery(search.trim());
-            setPage(0);
-          }}
-        >
-          <Field label="Tìm tài khoản hoặc trường">
-            <input
-              aria-label="Tìm tài khoản quản trị"
-              className={inputClass}
-              value={search}
-              maxLength={150}
-              placeholder="Tên đăng nhập, họ tên hoặc trường…"
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </Field>
-          <button className={secondaryClass}>
-            <Search size={16} />
-            Tìm kiếm
-          </button>
-        </form>
-        <div className="space-y-3">
-          <Field label="Trạng thái tài khoản">
-            <select
-              aria-label="Trạng thái quản trị"
-              className={inputClass}
-              value={status}
-              onChange={(event) => {
-                setStatus(event.target.value);
-                setPage(0);
-              }}
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="ACTIVE">Hoạt động</option>
-              <option value="LOCKED">Đã khóa</option>
-              <option value="INACTIVE">Ngừng hoạt động</option>
-              <option value="PENDING">Chờ kích hoạt</option>
-            </select>
-          </Field>
-          <p className="text-xs leading-5 text-slate-500">
-            Chọn một trường để cấp tài khoản. Khóa tài khoản hoặc đổi mật khẩu
-            sẽ thu hồi các phiên đăng nhập cũ.
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+          <p>
+            {school
+              ? `Đang lọc tài khoản của ${school.name}.`
+              : "Chọn trường trong bộ lọc để cấp tài khoản mới."}
           </p>
+          {(schoolTotal > 20 || schoolPage > 0) && (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className="font-medium text-blue-600 disabled:text-slate-300"
+                disabled={schoolPage === 0 || schoolsLoading}
+                onClick={() => setSchoolPage((value) => value - 1)}
+              >
+                Trường trước
+              </button>
+              <span>
+                {schoolTotal} trường · Trang {schoolPage + 1}
+              </span>
+              <button
+                type="button"
+                className="font-medium text-blue-600 disabled:text-slate-300"
+                disabled={
+                  (schoolPage + 1) * 20 >= schoolTotal || schoolsLoading
+                }
+                onClick={() => setSchoolPage((value) => value + 1)}
+              >
+                Trường tiếp
+              </button>
+            </div>
+          )}
         </div>
+        {schoolError && <Notice>{schoolError}</Notice>}
       </div>
-      {loadError && <Notice>{loadError}</Notice>}
+      {loadError && (
+        <Notice>
+          {loadError}
+          <button
+            type="button"
+            className="ml-3 font-semibold underline"
+            onClick={() => setRevision((value) => value + 1)}
+          >
+            Thử lại
+          </button>
+        </Notice>
+      )}
       <div
-        className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+        className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
         aria-busy={loading}
       >
         {loading ? (
@@ -398,12 +401,13 @@ export function AdminAccountsPanel({
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[780px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-500">
+              <thead className="bg-blue-600 text-xs text-white">
                 <tr>
                   {[
-                    "Trường học",
+                    "#",
+                    "Họ và tên",
                     "Tên đăng nhập",
-                    "Họ tên",
+                    "Trường học",
                     "Trạng thái",
                     "Thao tác",
                   ].map((label) => (
@@ -414,19 +418,42 @@ export function AdminAccountsPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {items.map((item) => (
+                {items.map((item, index) => (
                   <tr
                     key={`${item.tenantId}:${item.id}`}
                     className="hover:bg-slate-50/60"
                   >
+                    <td className="w-14 px-5 py-4 text-center text-slate-400">
+                      {page * 20 + index + 1}
+                    </td>
                     <td className="px-5 py-4">
-                      <p className="font-semibold">{item.schoolName}</p>
-                      <p className="mt-1 text-xs text-slate-500">{item.slug}</p>
+                      <div className="flex items-center gap-3">
+                        <span
+                          aria-hidden="true"
+                          className="grid size-9 shrink-0 place-items-center rounded-full bg-blue-50 text-xs font-bold text-blue-700"
+                        >
+                          {item.fullName
+                            .trim()
+                            .split(/\s+/)
+                            .slice(-2)
+                            .map((part) => part.charAt(0))
+                            .join("")
+                            .toUpperCase()}
+                        </span>
+                        <span className="font-semibold text-slate-800">
+                          {item.fullName}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-5 py-4 font-medium">
                       {item.accountName}
                     </td>
-                    <td className="px-5 py-4">{item.fullName}</td>
+                    <td className="px-5 py-4">
+                      <p className="font-medium text-slate-700">
+                        {item.schoolName}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">{item.slug}</p>
+                    </td>
                     <td className="px-5 py-4">
                       <Badge
                         status={item.status}
@@ -438,7 +465,7 @@ export function AdminAccountsPanel({
                       />
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap items-center gap-3">
                         <button
                           className={secondaryClass}
                           onClick={() =>
@@ -448,19 +475,14 @@ export function AdminAccountsPanel({
                           <KeyRound size={15} />
                           Đổi mật khẩu
                         </button>
-                        <button
-                          className={secondaryClass}
-                          onClick={() =>
-                            open({ kind: "status", account: item })
-                          }
-                        >
-                          {item.status === "ACTIVE" ? (
-                            <LockKeyhole size={15} />
-                          ) : (
-                            <UnlockKeyhole size={15} />
-                          )}
-                          {item.status === "ACTIVE" ? "Khóa" : "Mở khóa"}
-                        </button>
+                        <ToggleSwitch
+                          checked={item.status === "ACTIVE"}
+                          aria-label={`${item.status === "ACTIVE" ? "Khóa" : "Mở khóa"} tài khoản ${item.accountName} của ${item.schoolName}`}
+                          title={item.status === "ACTIVE" ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+                          disabled={loading || busy || action !== null}
+                          loading={busy && action?.kind === "status" && action.account.tenantId === item.tenantId && action.account.id === item.id}
+                          onCheckedChange={() => open({ kind: "status", account: item })}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -471,9 +493,16 @@ export function AdminAccountsPanel({
         )}
         <div className="flex items-center justify-between border-t border-slate-100 px-5 py-4 text-sm text-slate-500">
           <span>
-            {loading ? "…" : `${total} tài khoản · Trang ${page + 1}`}
+            {loading
+              ? "Đang tải…"
+              : total
+                ? `Hiển thị ${page * 20 + 1}–${Math.min((page + 1) * 20, total)} / ${total} tài khoản`
+                : "0 tài khoản"}
           </span>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <span className="mr-2 text-xs">
+              Trang {page + 1} / {Math.max(1, Math.ceil(total / 20))}
+            </span>
             <button
               className={secondaryClass}
               disabled={loading || page === 0}

@@ -10,7 +10,6 @@ import { previewTenantDomains } from "@/lib/tenant-domains";
 import { quotaDraft, quotaResources, parseQuotaDraft, type QuotaDraft } from "@/lib/tenant-quota";
 import { TenantUsagePanel } from "./tenant-usage-panel";
 import { DomainProvisionPanel } from "./domain-provision-panel";
-import { TenantAdminPasswordPanel } from "./tenant-admin-password-panel";
 import {
   platformApi,
   type Plan,
@@ -74,9 +73,6 @@ export function TenantPanel({
   const [conflict, setConflict] = useState(false);
   const [committed, setCommitted] = useState(false);
   const [confirmReload, setConfirmReload] = useState(false);
-  const [adminDirty, setAdminDirty] = useState(false);
-  const [adminBusy, setAdminBusy] = useState(false);
-  const [adminPanelKey, setAdminPanelKey] = useState(0);
   const load = useCallback(async () => {
     const [detail, schoolProfile, branding, subscription, usage, allowance] =
       await Promise.all([
@@ -186,7 +182,6 @@ export function TenantPanel({
       !sub ||
       !dirty ||
       busy ||
-      adminBusy ||
       committed ||
       conflict
     )
@@ -293,16 +288,14 @@ export function TenantPanel({
       titleBadge={<Badge status={detail.tenant.status} />}
       size="wide"
       close={close}
-      confirmDiscard={(dirty && !committed) || adminDirty}
-      closeDisabled={busy || adminBusy || confirmReload}
+      confirmDiscard={dirty && !committed}
+      closeDisabled={busy || confirmReload}
       footer={(requestClose) => (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span role="status" className="text-xs text-slate-500">
-            {adminBusy
-              ? "Đang đặt lại mật khẩu quản trị trường…"
-              : busy
+            {busy
                 ? "Đang lưu thay đổi…"
-                : adminDirty || (dirty && !committed)
+                : dirty && !committed
                   ? "Có thay đổi chưa lưu"
                   : committed
                     ? "Thay đổi đã được lưu"
@@ -312,7 +305,7 @@ export function TenantPanel({
             <button
               type="button"
               className={secondaryClass}
-              disabled={busy || adminBusy}
+              disabled={busy}
               onClick={requestClose}
             >
               Hủy
@@ -320,7 +313,7 @@ export function TenantPanel({
             <button
               form={formId}
               type="submit"
-              disabled={busy || adminBusy || !dirty || conflict || committed}
+              disabled={busy || !dirty || conflict || committed}
               className={primaryClass}
             >
               {busy ? (
@@ -355,10 +348,10 @@ export function TenantPanel({
               type="button"
               className={secondaryClass}
               onClick={() => {
-                if ((dirty && !committed) || adminDirty) setConfirmReload(true);
+                if (dirty && !committed) setConfirmReload(true);
                 else void reload();
               }}
-              disabled={busy || adminBusy}
+              disabled={busy}
             >
               Tải lại thông tin
             </button>
@@ -366,7 +359,7 @@ export function TenantPanel({
         )}
         {success && <SuccessNotice>{success}</SuccessNotice>}
         <fieldset
-          disabled={busy || adminBusy || committed}
+          disabled={busy || committed}
           className="min-w-0 space-y-6"
         >
           <div className="grid items-start gap-6 lg:grid-cols-2 lg:gap-8">
@@ -656,14 +649,7 @@ export function TenantPanel({
           )}
         </fieldset>
       </form>
-      <DomainProvisionPanel key={`domains-${saved.profile.revision}`} id={id} disabled={busy || adminBusy || adminDirty || (dirty && !committed)} onChanged={reload} />
-      <TenantAdminPasswordPanel
-        key={adminPanelKey}
-        id={id}
-        disabled={busy}
-        onDirtyChange={setAdminDirty}
-        onBusyChange={setAdminBusy}
-      />
+      <DomainProvisionPanel key={`domains-${saved.profile.revision}`} id={id} disabled={busy || (dirty && !committed)} onChanged={reload} />
     </Modal>,
     confirmReload && (
       <DiscardChangesDialog
@@ -671,7 +657,6 @@ export function TenantPanel({
         cancel={() => setConfirmReload(false)}
         discard={() => {
           setConfirmReload(false);
-          setAdminPanelKey((value) => value + 1);
           void reload();
         }}
       />

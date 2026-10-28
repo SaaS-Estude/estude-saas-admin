@@ -40,7 +40,7 @@ async function mount(t,options={}) {
   const {TenantPanel}=loadComponent('components/platform/tenant-panel.tsx',{
     'next/image':{default:p=>React.createElement('img',p)},
     '@/lib/platform-api':{platformApi:api},
-    './tenant-admin-password-panel':{TenantAdminPasswordPanel:()=>null},
+    './tenant-admin-password-panel':{TenantAdminPasswordPanel:()=>{throw Error('Account credentials must be managed outside the school dialog')}},
     './domain-provision-panel':{DomainProvisionPanel:()=>null},
     './tenant-usage-panel':loadComponent('components/platform/tenant-usage-panel.tsx',{'@/lib/tenant-quota':quotaHelpers,'./console-ui':ui}),
     '@/lib/tenant-domains':{previewTenantDomains:()=>[]},

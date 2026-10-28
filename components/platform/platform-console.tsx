@@ -878,7 +878,7 @@ export function PlatformConsole() {
                 EStude Platform
               </p>
               <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                Quản lý hệ thống
+                {tab === "admins" ? "Tài khoản quản trị trường" : "Quản lý hệ thống"}
               </h1>
               <p className="mt-2 text-sm leading-6 text-slate-500">
                 {tab === "overview"
@@ -886,13 +886,13 @@ export function PlatformConsole() {
                   : tab === "tenants"
                     ? "Quản lý không gian học tập và trạng thái của từng trường."
                     : tab === "admins"
-                      ? "Quản lý tài khoản quản trị của các trường. Mỗi trường tối đa 3 tài khoản."
+                      ? "Cấp tài khoản, khóa hoặc mở khóa và đặt lại mật khẩu quản trị theo từng trường."
                     : tab === "domains"
                       ? "Thiết lập địa chỉ truy cập mặc định cho trường mới."
                       : "Quản lý gói dịch vụ, tính năng và hạn mức sử dụng."}
               </p>
             </div>
-            <div className="flex gap-2">
+            {tab !== "admins" && <div className="flex gap-2">
               <button
                 className={secondaryClass}
                 onClick={() => void load()}
@@ -908,7 +908,7 @@ export function PlatformConsole() {
                 <Plus size={17} />
                 Tạo trường
               </button>
-            </div>
+            </div>}
           </div>
           <nav
             className="-mx-4 flex gap-1 overflow-x-auto border-y border-slate-200/70 bg-white px-4 py-2 lg:hidden"
@@ -941,7 +941,7 @@ export function PlatformConsole() {
               {notice}
             </SuccessNotice>
           )}
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+          {tab !== "admins" && <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             {[
               {
                 label: "Tổng trường học",
@@ -985,7 +985,7 @@ export function PlatformConsole() {
                 </div>
               </div>
             ))}
-          </div>
+          </div>}
           {tab === "overview" && (
             <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
               <section className="relative overflow-hidden rounded-2xl bg-[#163b80] p-6 text-white sm:p-7">
