@@ -36,6 +36,9 @@ export type OrderStatus = {
   domainStatus?: string;
   setupRequired?: boolean;
 };
+export type LookupOrder = Pick<OrderStatus, "orderCode" | "status" | "fulfilmentStatus" | "planName" | "cycle" | "amount"> & { createdAt: string };
+export type LookupResult = { orders: LookupOrder[]; hasMore: boolean };
+export type ResumedOrder = { orderCode: number; accessToken: string; expiresAt: string };
 export type BuyInput = {
   planCode: string;
   cycle: Cycle;
@@ -104,6 +107,8 @@ async function call<T>(path: string, method = "GET", body?: unknown) {
 }
 
 export const billingPublic = {
+	lookup: (contact: string, page = 0) => call<LookupResult>("/orders/lookup", "POST", { contact, page }),
+	resume: (code: number, contact: string) => call<ResumedOrder>(`/orders/${code}/resume`, "POST", { contact }),
   plans: () => call<Catalog>("/plans"),
   slugCheck: (slug: string) =>
     call<{ available: boolean; reason: string }>(
@@ -120,6 +125,28 @@ export const billingPublic = {
   setup: (code: number, token: string, school: SchoolSetupInput) =>
     call<OrderStatus>(`/orders/${code}/setup`, "POST", { token, ...school }),
 };
+
+export function validateLookupContact(value: string) {
+  const contact = value.trim();
+  if (!contact) return "Nhập email hoặc số điện thoại đã dùng khi đặt hàng.";
+  if (contact.includes("@")) {
+    return contact.length <= 254 && /^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(contact)
+      ? "" : "Email không hợp lệ.";
+  }
+  const digits = contact.replace(/[^0-9]/g, "");
+  return /^[0-9+ ().-]{8,20}$/.test(contact) && digits.length >= 8 && digits.length <= 15
+    ? "" : "Nhập email hoặc số điện thoại hợp lệ.";
+}
+
+export function lookupOrderAction(order: LookupOrder) {
+  if (order.status === "PAID") {
+    if (order.fulfilmentStatus === "NONE") return "Hoàn tất thông tin trường";
+    if (order.fulfilmentStatus === "DONE") return "Xem trường và đăng nhập";
+    if (order.fulfilmentStatus === "FAILED") return "Xem hướng dẫn hỗ trợ";
+    return "Theo dõi tạo trường";
+  }
+  return order.status === "PENDING" ? "Kiểm tra thanh toán / tiếp tục" : "Xem chi tiết đơn hàng";
+}
 
 export const formatVnd = (value: number) =>
   `${Math.round(value).toLocaleString("vi-VN")} ₫`;

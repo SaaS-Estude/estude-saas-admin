@@ -67,7 +67,7 @@ export function PaymentResult() {
     // The token effect runs first; wait one tick if it has not been set yet.
     const token = tokenRef.current || urlToken;
     if (!token) {
-      setError("Không tìm thấy mã truy cập đơn hàng. Hãy mở lại liên kết từ trang thanh toán.");
+      setError("Không tìm thấy mã truy cập đơn hàng. Bạn có thể tra cứu lại bằng email hoặc số điện thoại đặt hàng.");
       return;
     }
     try {
@@ -119,6 +119,7 @@ export function PaymentResult() {
         {!order && error && (
           <Panel tone="bad" icon={<TriangleAlert size={28} />} title="Không xem được đơn hàng">
             <p>{error}</p>
+            <Link href="/orders/lookup" className={primaryClass}>Tra cứu đơn hàng</Link>
             <Link href="/" className={secondaryClass}>Về trang chủ</Link>
           </Panel>
         )}
@@ -154,6 +155,7 @@ export function PaymentResult() {
               <>
                 <Notice>Việc tạo trường lâu hơn dự kiến. Đơn hàng của bạn đã được ghi nhận, vui lòng kiểm tra lại sau ít phút.</Notice>
                 <button type="button" onClick={() => void recheck()} className={secondaryClass}>Kiểm tra lại</button>
+                <Link href="/orders/lookup" className={secondaryClass}>Tra cứu lại sau</Link>
               </>
             )}
             <p className="text-xs text-slate-500">Mã đơn hàng: {order.orderCode}</p>
